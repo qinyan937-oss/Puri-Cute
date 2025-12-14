@@ -58,12 +58,28 @@ export const STICKER_CATEGORIES = {
     { id: 'doodle_wings', label: 'Wings' },
     { id: 'doodle_whiskers', label: 'Whiskers' },
     { id: 'doodle_crown', label: 'Crown' },
+  ],
+  RETRO: [
+    { id: 'retro_bauble', label: 'Bauble' },
+    { id: 'retro_holly', label: 'Holly' },
+    { id: 'retro_light', label: 'Xmas Light' },
+    { id: 'retro_stocking', label: 'Stocking' },
+    { id: 'retro_tree', label: 'Xmas Tree' },
+  ],
+  CYBER: [
+    { id: 'cyber_bear', label: 'Chrome Bear' },
+    { id: 'cyber_bunny', label: 'Holo Bunny' },
+    { id: 'cyber_kitty', label: 'Cyber Kitty' },
+    { id: 'cyber_puppy', label: 'Chrome Puppy' },
+    { id: 'cyber_bird', label: 'Gold Bird' },
   ]
 };
 
-// Flattened list for type checking if needed, though we mainly use categories now
+// Flattened list for type checking
 export const ALL_STICKER_IDS = [
   ...STICKER_CATEGORIES.Y2K.map(s => s.id),
   ...STICKER_CATEGORIES.RIBBON.map(s => s.id),
   ...STICKER_CATEGORIES.DOODLE.map(s => s.id),
+  ...STICKER_CATEGORIES.RETRO.map(s => s.id),
+  ...STICKER_CATEGORIES.CYBER.map(s => s.id),
 ];

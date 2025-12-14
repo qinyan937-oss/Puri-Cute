@@ -81,14 +81,10 @@ const drawY2KSticker = (ctx: CanvasRenderingContext2D, id: string) => {
     ctx.beginPath();
 
     if (isMoon) {
-        // Crescent Moon
-        ctx.arc(0, 0, 50, 0, Math.PI * 2);
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.arc(20, -10, 45, 0, Math.PI * 2);
-        // Reset composite for fill
-        // Note: Composite ops are tricky in a shared context stack. 
-        // Better approach for Crescent: Bezier or two arcs path interaction.
-        // Let's use simple path construction for stability.
+        // Crescent Moon using arc
+        ctx.arc(0, 0, 50, 2.0, 5.5, false); // Outer
+        ctx.bezierCurveTo(20, -30, 20, 30, -21, 35); // Inner curve
+        ctx.closePath();
     } else if (isCross) {
         // Y2K Cross/Sparkle (Sharp)
         ctx.moveTo(0, -60);
@@ -121,14 +117,6 @@ const drawY2KSticker = (ctx: CanvasRenderingContext2D, id: string) => {
         ctx.lineTo(0, 0 - outerRadius);
     }
     
-    // For Moon fix (since composite op is hard in this flow):
-    if (isMoon) {
-         ctx.beginPath();
-         ctx.arc(0, 0, 50, 2.0, 5.5, false); // Outer
-         ctx.bezierCurveTo(20, -30, 20, 30, -21, 35); // Inner curve
-         ctx.closePath();
-    }
-
     ctx.fill();
 
     // High Gloss Bevel (White Highlight)
@@ -294,6 +282,338 @@ const drawDoodleSticker = (ctx: CanvasRenderingContext2D, id: string) => {
 };
 
 /**
+ * DECORATION: Draw Retro Xmas (1950s-60s)
+ */
+const drawRetroXmas = (ctx: CanvasRenderingContext2D, id: string) => {
+    // Palette
+    const RED = '#C4423F';
+    const GREEN = '#2E5E4E';
+    const GOLD = '#D4AF37';
+    const CREAM = '#F2E8C9';
+    const STROKE = '#4A3328';
+    
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    
+    const applyRetroStroke = () => {
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = STROKE;
+        ctx.stroke();
+    };
+
+    if (id.includes('bauble')) {
+        // 1. Classic Bauble
+        ctx.beginPath();
+        ctx.arc(0, 10, 45, 0, Math.PI * 2);
+        ctx.fillStyle = RED;
+        ctx.fill();
+        
+        // Stripe
+        ctx.save();
+        ctx.beginPath(); ctx.arc(0, 10, 45, 0, Math.PI*2); ctx.clip();
+        ctx.fillStyle = CREAM;
+        ctx.fillRect(-50, 0, 100, 20);
+        // Dots on stripe
+        ctx.fillStyle = GREEN;
+        ctx.beginPath(); ctx.arc(-25, 10, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 10, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(25, 10, 4, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        
+        // Main Stroke
+        ctx.beginPath(); ctx.arc(0, 10, 45, 0, Math.PI * 2);
+        applyRetroStroke();
+
+        // Cap
+        ctx.fillStyle = GOLD;
+        ctx.fillRect(-10, -40, 20, 10);
+        ctx.strokeRect(-10, -40, 20, 10);
+        ctx.beginPath(); ctx.arc(0, -45, 5, 0, Math.PI*2); 
+        ctx.stroke();
+        
+    } else if (id.includes('holly')) {
+        // 2. Holly & Berries
+        const drawLeaf = (angle: number) => {
+            ctx.save();
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(15, -10, 30, 0); // Side 1 part 1
+            ctx.quadraticCurveTo(45, -10, 60, 0); // Tip
+            ctx.quadraticCurveTo(45, 10, 30, 0);
+            ctx.quadraticCurveTo(15, 10, 0, 0);
+            ctx.fillStyle = GREEN;
+            ctx.fill();
+            applyRetroStroke();
+            // Veins
+            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(55,0);
+            ctx.strokeStyle = CREAM; ctx.lineWidth = 1; ctx.stroke();
+            ctx.restore();
+        };
+
+        drawLeaf(-0.5);
+        drawLeaf(0.5);
+
+        // Berries
+        const drawBerry = (bx: number, by: number) => {
+            ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI*2);
+            ctx.fillStyle = RED; ctx.fill();
+            applyRetroStroke();
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(bx - 2, by - 2, 2, 0, Math.PI*2); ctx.fill();
+        };
+        drawBerry(-5, -5);
+        drawBerry(8, 0);
+        drawBerry(0, 8);
+
+    } else if (id.includes('light')) {
+        // 3. Vintage C9 Light
+        ctx.save();
+        ctx.shadowColor = GOLD;
+        ctx.shadowBlur = 25;
+        ctx.beginPath();
+        ctx.moveTo(0, -40);
+        ctx.bezierCurveTo(30, -10, 30, 30, 0, 50);
+        ctx.bezierCurveTo(-30, 30, -30, -10, 0, -40);
+        ctx.fillStyle = GOLD;
+        ctx.fill();
+        ctx.restore(); 
+
+        ctx.beginPath();
+        ctx.moveTo(0, -40);
+        ctx.bezierCurveTo(30, -10, 30, 30, 0, 50);
+        ctx.bezierCurveTo(-30, 30, -30, -10, 0, -40);
+        applyRetroStroke();
+
+        ctx.fillStyle = '#C0C0C0'; 
+        ctx.fillRect(-12, -55, 24, 15);
+        ctx.strokeRect(-12, -55, 24, 15);
+        ctx.beginPath();
+        ctx.moveTo(-12, -50); ctx.lineTo(12, -50);
+        ctx.moveTo(-12, -45); ctx.lineTo(12, -45);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = STROKE;
+        ctx.stroke();
+
+    } else if (id.includes('stocking')) {
+        // 4. Retro Stocking (Boot)
+        ctx.beginPath();
+        ctx.moveTo(-15, -50); // Top left
+        ctx.lineTo(15, -50);  // Top right
+        ctx.lineTo(15, 0);    // Ankle right
+        ctx.bezierCurveTo(15, 30, 20, 35, 35, 40); // Heel curve to toe top
+        ctx.lineTo(35, 55);   // Toe bottom
+        ctx.bezierCurveTo(0, 55, -20, 45, -25, 35); // Heel
+        ctx.lineTo(-25, 0); // Back of leg
+        ctx.lineTo(-15, -50);
+        ctx.closePath();
+        
+        ctx.fillStyle = RED;
+        ctx.fill();
+        applyRetroStroke();
+
+        // Cuff
+        ctx.fillStyle = CREAM;
+        ctx.fillRect(-20, -50, 40, 15);
+        ctx.strokeRect(-20, -50, 40, 15);
+
+        // Patches
+        ctx.fillStyle = GREEN;
+        // Toe patch
+        ctx.beginPath(); ctx.moveTo(35, 40); ctx.lineTo(35, 55); ctx.lineTo(20, 50); ctx.fill();
+        // Heel patch
+        ctx.beginPath(); ctx.moveTo(-25, 35); ctx.lineTo(-15, 30); ctx.lineTo(-15, 45); ctx.fill();
+
+    } else if (id.includes('tree')) {
+        // 5. Retro Tree
+        // Trunk
+        ctx.fillStyle = '#5C4033'; // Brown
+        ctx.fillRect(-10, 35, 20, 25);
+        ctx.strokeRect(-10, 35, 20, 25);
+
+        // Layers
+        ctx.fillStyle = GREEN;
+        const drawLayer = (yOff: number, width: number, height: number) => {
+            ctx.beginPath();
+            ctx.moveTo(0, yOff - height);
+            ctx.lineTo(width, yOff);
+            ctx.lineTo(-width, yOff);
+            ctx.closePath();
+            ctx.fill();
+            applyRetroStroke();
+        };
+        
+        drawLayer(40, 45, 40); // Bottom
+        drawLayer(15, 35, 35); // Middle
+        drawLayer(-10, 25, 30); // Top
+
+        // Ornaments (Dots)
+        ctx.fillStyle = RED;
+        ctx.beginPath(); ctx.arc(-15, 30, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(10, 5, 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = CREAM;
+        ctx.beginPath(); ctx.arc(15, 30, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-5, -5, 4, 0, Math.PI*2); ctx.fill();
+
+        // Star
+        ctx.fillStyle = GOLD;
+        ctx.beginPath();
+        ctx.moveTo(0, -45); ctx.lineTo(5, -35); ctx.lineTo(15, -35);
+        ctx.lineTo(7, -25); ctx.lineTo(10, -15); ctx.lineTo(0, -20);
+        ctx.lineTo(-10, -15); ctx.lineTo(-7, -25); ctx.lineTo(-15, -35);
+        ctx.lineTo(-5, -35);
+        ctx.closePath();
+        ctx.fill();
+        applyRetroStroke();
+    }
+};
+
+/**
+ * DECORATION: Draw Cyber Pets (Y2K Liquid Metal)
+ */
+const drawCyberPet = (ctx: CanvasRenderingContext2D, id: string) => {
+    
+    // Helper for radial metal gradient
+    const fillMetalGradient = (x: number, y: number, r: number, type: 'silver' | 'holo' | 'titanium' | 'gold') => {
+        const grad = ctx.createRadialGradient(x - r/3, y - r/3, 0, x, y, r);
+        if (type === 'silver') {
+            grad.addColorStop(0, '#FFFFFF'); // Highlight
+            grad.addColorStop(0.3, '#E0E0E0');
+            grad.addColorStop(0.8, '#808080'); // Mid
+            grad.addColorStop(1, '#404040'); // Shadow
+        } else if (type === 'holo') {
+            grad.addColorStop(0, '#FFE0F0'); // Pale Pink
+            grad.addColorStop(0.5, '#DDA0DD'); // Plum
+            grad.addColorStop(1, '#8A2BE2'); // Purple Metal
+        } else if (type === 'titanium') {
+             grad.addColorStop(0, '#A0A0A0'); 
+             grad.addColorStop(0.5, '#505050');
+             grad.addColorStop(1, '#1A1A1A'); // Dark
+        } else if (type === 'gold') {
+             grad.addColorStop(0, '#FFFFE0'); // Light Yellow
+             grad.addColorStop(0.4, '#FFD700'); // Gold
+             grad.addColorStop(1, '#B8860B'); // Dark Gold
+        }
+        ctx.fillStyle = grad;
+        ctx.fill();
+    };
+
+    if (id.includes('bear')) {
+        // 1. Chrome Bear
+        ctx.beginPath(); ctx.arc(-35, -35, 18, 0, Math.PI*2);
+        fillMetalGradient(-35, -35, 18, 'silver');
+        ctx.beginPath(); ctx.arc(35, -35, 18, 0, Math.PI*2);
+        fillMetalGradient(35, -35, 18, 'silver');
+        
+        ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI*2);
+        fillMetalGradient(0, 0, 50, 'silver');
+        
+        ctx.beginPath(); ctx.ellipse(-20, -20, 15, 8, -Math.PI/4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
+
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(-15, 0, 4, 0, Math.PI*2); ctx.fill(); 
+        ctx.beginPath(); ctx.arc(15, 0, 4, 0, Math.PI*2); ctx.fill(); 
+        ctx.beginPath(); ctx.ellipse(0, 10, 8, 5, 0, 0, Math.PI*2); ctx.fill(); 
+
+    } else if (id.includes('bunny')) {
+        // 2. Holo Bunny
+        ctx.shadowColor = '#00FFFF'; // Cyan glow
+        ctx.shadowBlur = 15;
+        
+        ctx.beginPath(); ctx.ellipse(-25, -50, 15, 40, -0.2, 0, Math.PI*2);
+        fillMetalGradient(-25, -50, 40, 'holo');
+        ctx.beginPath(); ctx.ellipse(25, -50, 15, 40, 0.2, 0, Math.PI*2);
+        fillMetalGradient(25, -50, 40, 'holo');
+        
+        ctx.shadowBlur = 0; 
+
+        ctx.beginPath(); ctx.arc(0, 0, 45, 0, Math.PI*2);
+        fillMetalGradient(0, 0, 45, 'holo');
+        
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-15, -5, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(15, -5, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-5, 10); ctx.lineTo(5, 10); ctx.lineTo(0, 15); ctx.fill();
+
+    } else if (id.includes('kitty')) {
+        // 3. Cyber Kitty
+        ctx.beginPath(); ctx.moveTo(-40, -20); ctx.lineTo(-55, -60); ctx.lineTo(-10, -35);
+        fillMetalGradient(-35, -40, 25, 'titanium');
+        ctx.beginPath(); ctx.moveTo(40, -20); ctx.lineTo(55, -60); ctx.lineTo(10, -35);
+        fillMetalGradient(35, -40, 25, 'titanium');
+
+        ctx.beginPath(); ctx.ellipse(0, 0, 55, 40, 0, 0, Math.PI*2);
+        fillMetalGradient(0, 0, 55, 'titanium');
+
+        ctx.shadowColor = '#00FF00'; ctx.shadowBlur = 10; ctx.fillStyle = '#00FF00';
+        ctx.beginPath(); ctx.arc(-20, 0, 6, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(20, 0, 6, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 1;
+        ctx.beginPath(); 
+        ctx.moveTo(-40, 10); ctx.lineTo(-65, 10); ctx.moveTo(-40, 18); ctx.lineTo(-60, 22);
+        ctx.moveTo(40, 10); ctx.lineTo(65, 10); ctx.moveTo(40, 18); ctx.lineTo(60, 22);
+        ctx.stroke();
+
+    } else if (id.includes('puppy')) {
+        // 4. Chrome Puppy (Floppy Ears)
+        // Ears (Droopy)
+        ctx.beginPath(); ctx.ellipse(-45, -10, 15, 35, 0.4, 0, Math.PI*2);
+        fillMetalGradient(-45, -10, 35, 'silver');
+        ctx.beginPath(); ctx.ellipse(45, -10, 15, 35, -0.4, 0, Math.PI*2);
+        fillMetalGradient(45, -10, 35, 'silver');
+
+        // Head
+        ctx.beginPath(); ctx.arc(0, 0, 48, 0, Math.PI*2);
+        fillMetalGradient(0, 0, 48, 'silver');
+
+        // Eyes (Big puppy eyes)
+        ctx.fillStyle = '#111';
+        ctx.beginPath(); ctx.arc(-18, -5, 6, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(18, -5, 6, 0, Math.PI*2); ctx.fill();
+        // Shine
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-20, -8, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(16, -8, 2, 0, Math.PI*2); ctx.fill();
+
+        // Snout
+        ctx.beginPath(); ctx.ellipse(0, 15, 12, 8, 0, 0, Math.PI*2);
+        ctx.fillStyle = '#333'; ctx.fill();
+
+    } else if (id.includes('bird')) {
+        // 5. Gold Bird
+        ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 10;
+        
+        // Wings
+        ctx.beginPath(); ctx.ellipse(-35, 10, 15, 8, -0.5, 0, Math.PI*2);
+        fillMetalGradient(-35, 10, 15, 'gold');
+        ctx.beginPath(); ctx.ellipse(35, 10, 15, 8, 0.5, 0, Math.PI*2);
+        fillMetalGradient(35, 10, 15, 'gold');
+
+        ctx.shadowBlur = 0;
+
+        // Body
+        ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2);
+        fillMetalGradient(0, 0, 40, 'gold');
+
+        // Eyes
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(-15, -10, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(15, -10, 4, 0, Math.PI*2); ctx.fill();
+
+        // Beak
+        ctx.fillStyle = '#FF4500'; // OrangeRed
+        ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.lineTo(0, 8); ctx.fill();
+        
+        // Hair tuft
+        ctx.strokeStyle = '#DAA520'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, -40); ctx.quadraticCurveTo(5, -55, 15, -50); ctx.stroke();
+    }
+};
+
+/**
  * EFFECT: Draw Noise Overlay (Film Grain)
  */
 const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number = 0.35) => {
@@ -423,8 +743,12 @@ export const renderComposite = (params: RenderParams) => {
               drawRibbonSticker(ctx, sticker.content);
           } else if (sticker.content.startsWith('doodle')) {
               drawDoodleSticker(ctx, sticker.content);
+          } else if (sticker.content.startsWith('retro')) {
+              drawRetroXmas(ctx, sticker.content);
+          } else if (sticker.content.startsWith('cyber')) {
+              drawCyberPet(ctx, sticker.content);
           } else {
-              // Fallback for old emoji stickers if any exist
+              // Fallback for old emoji stickers
               ctx.font = `${STICKER_BASE_SIZE}px sans-serif`;
               ctx.textAlign = "center";
               ctx.textBaseline = "middle";
@@ -441,6 +765,7 @@ export const renderComposite = (params: RenderParams) => {
              ctx.setLineDash([15, 10]);
              ctx.strokeRect(-half, -half, boxSize, boxSize);
              
+             // DELETE HANDLE (Top Right)
              const handleRadius = 24 / sticker.scale;
              ctx.setLineDash([]);
              ctx.fillStyle = '#ef4444'; 
@@ -455,6 +780,24 @@ export const renderComposite = (params: RenderParams) => {
              ctx.lineTo(half + xOff, -half + xOff);
              ctx.moveTo(half + xOff, -half - xOff);
              ctx.lineTo(half - xOff, -half + xOff);
+             ctx.stroke();
+
+             // RESIZE HANDLE (Bottom Right)
+             ctx.fillStyle = '#3b82f6'; 
+             ctx.beginPath();
+             ctx.arc(half, half, handleRadius, 0, Math.PI*2);
+             ctx.fill();
+             // Draw Arrows
+             ctx.strokeStyle = '#fff';
+             ctx.lineWidth = 2 / sticker.scale;
+             ctx.beginPath();
+             // Diagonal arrow
+             const arrowSize = handleRadius * 0.5;
+             ctx.moveTo(half - arrowSize, half - arrowSize);
+             ctx.lineTo(half + arrowSize, half + arrowSize);
+             // Arrowheads
+             ctx.moveTo(half - arrowSize + 5, half - arrowSize); ctx.lineTo(half - arrowSize, half - arrowSize); ctx.lineTo(half - arrowSize, half - arrowSize + 5);
+             ctx.moveTo(half + arrowSize - 5, half + arrowSize); ctx.lineTo(half + arrowSize, half + arrowSize); ctx.lineTo(half + arrowSize, half + arrowSize - 5);
              ctx.stroke();
           }
           
@@ -474,19 +817,13 @@ export const renderComposite = (params: RenderParams) => {
     ctx.drawImage(frameImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
   }
 };
-
-// ... [Existing Layout generation code remains largely unchanged, omit to save space if not modified] ...
+// ... (omitting layout generation code as it remains unchanged) ...
 // Re-exporting necessary layout functions for App.tsx compatibility
-// (Assuming the rest of the file content for generateLayoutSheet etc is preserved as is)
 const getSource = (sources: HTMLCanvasElement[], index: number) => {
     return sources[index % sources.length];
 };
 
 const drawStandardLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLCanvasElement[], WIDTH: number, HEIGHT: number, location: string, date: string) => {
-    // ... (Same as previous file content) ...
-    // Note: In a real incremental update, I would leave this out if not changing.
-    // However, since I need to return the FULL file content for valid XML replacement:
-    
     // Grid Background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -503,10 +840,6 @@ const drawStandardLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLC
     ctx.stroke();
     ctx.restore();
 
-    // Standard Layout Logic (Simplified for brevity in this response, assume identical to previous)
-    // Actually, to ensure code integrity, I must paste the full content or it will break.
-    // RE-INSERTING PREVIOUS LOGIC FULLY:
-    
     const SIDEBAR_X = 1300; 
     const sidebarWidth = WIDTH - SIDEBAR_X;
     const M_WIDTH = 580; const M_HEIGHT = 720; const GAP = 40;

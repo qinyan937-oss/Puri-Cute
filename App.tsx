@@ -67,7 +67,7 @@ export default function App() {
   // Decoration State
   const [editTab, setEditTab] = useState<'adjust' | 'draw' | 'sticker'>('adjust');
   // Sub-tab for stickers
-  const [stickerCategory, setStickerCategory] = useState<'Y2K' | 'RIBBON' | 'DOODLE'>('Y2K');
+  const [stickerCategory, setStickerCategory] = useState<'Y2K' | 'RIBBON' | 'DOODLE' | 'RETRO' | 'CYBER'>('Y2K');
   const [decorations, setDecorations] = useState<DecorationState[]>([]);
   const [penColor, setPenColor] = useState<string>(PEN_COLORS[0]);
   
@@ -75,7 +75,9 @@ export default function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [isResizingSticker, setIsResizingSticker] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [initialResizeState, setInitialResizeState] = useState<{dist: number, scale: number} | null>(null);
 
   // Camera State
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -289,13 +291,55 @@ export default function App() {
       }
 
       // --- MODE: STICKER / ADJUST ---
-      // Hit Test Stickers (Top-most first, so reverse array check)
       const currentDecorations = decorations[index];
       if (!currentDecorations) return;
       
-      let hitStickerId: string | null = null;
-      let action: 'select' | 'delete' = 'select';
+      // 1. Check Delete/Resize Handle of SELECTED sticker first
+      if (selectedStickerId) {
+          const selectedSticker = currentDecorations.stickers.find(s => s.id === selectedStickerId);
+          if (selectedSticker) {
+              const halfSize = (STICKER_BASE_SIZE * 1.2 * selectedSticker.scale) / 2;
+              
+              // DELETE Handle (Top Right)
+              const delX = selectedSticker.x + halfSize;
+              const delY = selectedSticker.y - halfSize;
+              const distDel = Math.sqrt(Math.pow(coords.x - delX, 2) + Math.pow(coords.y - delY, 2));
+              
+              if (distDel < 40) { 
+                  play('cancel');
+                  setDecorations(prev => {
+                      const next = [...prev];
+                      next[index] = {
+                          ...next[index],
+                          stickers: next[index].stickers.filter(s => s.id !== selectedStickerId)
+                      };
+                      return next;
+                  });
+                  setSelectedStickerId(null);
+                  return; 
+              }
 
+              // RESIZE Handle (Bottom Right)
+              const resX = selectedSticker.x + halfSize;
+              const resY = selectedSticker.y + halfSize;
+              const distRes = Math.sqrt(Math.pow(coords.x - resX, 2) + Math.pow(coords.y - resY, 2));
+
+              if (distRes < 40) {
+                  setIsResizingSticker(true);
+                  const distFromCenter = Math.sqrt(Math.pow(coords.x - selectedSticker.x, 2) + Math.pow(coords.y - selectedSticker.y, 2));
+                  setInitialResizeState({
+                      dist: distFromCenter,
+                      scale: selectedSticker.scale
+                  });
+                  return;
+              }
+          }
+      }
+      
+      // 2. Normal Sticker Hit Test (Selection)
+      let hitStickerId: string | null = null;
+
+      // Hit Test Stickers (Top-most first)
       for (let i = currentDecorations.stickers.length - 1; i >= 0; i--) {
           const s = currentDecorations.stickers[i];
           const halfSize = (STICKER_BASE_SIZE * 1.2 * s.scale) / 2;
@@ -306,44 +350,20 @@ export default function App() {
               coords.y >= s.y - halfSize &&
               coords.y <= s.y + halfSize
           ) {
-              // Check Delete Handle
-              if (selectedStickerId === s.id) {
-                  const handleX = s.x + halfSize;
-                  const handleY = s.y - halfSize;
-                  const dist = Math.sqrt(Math.pow(coords.x - handleX, 2) + Math.pow(coords.y - handleY, 2));
-                  if (dist < 40) { 
-                      action = 'delete';
-                      hitStickerId = s.id;
-                      break;
-                  }
-              }
-              
               hitStickerId = s.id;
               break;
           }
       }
 
       if (hitStickerId) {
-          if (action === 'delete') {
-              play('cancel');
-              setDecorations(prev => {
-                  const next = [...prev];
-                  next[index] = {
-                      ...next[index],
-                      stickers: next[index].stickers.filter(s => s.id !== hitStickerId)
-                  };
-                  return next;
-              });
-              setSelectedStickerId(null);
-          } else {
-              setSelectedStickerId(hitStickerId);
-              const s = currentDecorations.stickers.find(st => st.id === hitStickerId);
-              if (s) {
-                  setIsDraggingSticker(true);
-                  setDragOffset({ x: coords.x - s.x, y: coords.y - s.y });
-              }
+          setSelectedStickerId(hitStickerId);
+          const s = currentDecorations.stickers.find(st => st.id === hitStickerId);
+          if (s) {
+              setIsDraggingSticker(true);
+              setDragOffset({ x: coords.x - s.x, y: coords.y - s.y });
           }
       } else {
+          // Deselect if clicked empty space
           setSelectedStickerId(null);
       }
   };
@@ -371,6 +391,29 @@ export default function App() {
                   ctx.stroke();
               }
           }
+          return;
+      }
+
+      if (isResizingSticker && selectedStickerId && initialResizeState) {
+          setDecorations(prev => {
+              const next = [...prev];
+              const stickers = [...next[index].stickers];
+              const sIdx = stickers.findIndex(s => s.id === selectedStickerId);
+              if (sIdx > -1) {
+                  const s = stickers[sIdx];
+                  const currentDist = Math.sqrt(Math.pow(coords.x - s.x, 2) + Math.pow(coords.y - s.y, 2));
+                  const scaleRatio = currentDist / initialResizeState.dist;
+                  // Limit min/max scale
+                  const newScale = Math.max(0.3, Math.min(3.0, initialResizeState.scale * scaleRatio));
+                  
+                  stickers[sIdx] = {
+                      ...s,
+                      scale: newScale
+                  };
+                  next[index] = { ...next[index], stickers };
+              }
+              return next;
+          });
           return;
       }
 
@@ -407,6 +450,8 @@ export default function App() {
       }
       setIsDrawing(false);
       setIsDraggingSticker(false);
+      setIsResizingSticker(false);
+      setInitialResizeState(null);
   };
 
   const addSticker = (stickerContent: string) => {
@@ -713,16 +758,18 @@ export default function App() {
             {editTab === 'sticker' && (
                 <div>
                   {/* Category Filter */}
-                  <div className="flex justify-center gap-4 mb-4">
-                    {(['Y2K', 'RIBBON', 'DOODLE'] as const).map(cat => (
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                    {(['Y2K', 'RIBBON', 'DOODLE', 'RETRO', 'CYBER'] as const).map(cat => (
                       <button 
                         key={cat}
                         onClick={() => setStickerCategory(cat)}
-                        className={`text-xs font-bold px-3 py-1 rounded-full transition-all border ${stickerCategory === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200 hover:border-pink-300'}`}
+                        className={`text-xs font-bold px-3 py-1 rounded-full transition-all border whitespace-nowrap ${stickerCategory === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200 hover:border-pink-300'}`}
                       >
                          {cat === 'Y2K' && '✨ Y2K'}
                          {cat === 'RIBBON' && '🎀 Ribbon'}
                          {cat === 'DOODLE' && '🖍️ Doodle'}
+                         {cat === 'RETRO' && '🎄 Retro Xmas'}
+                         {cat === 'CYBER' && '🤖 Cyber Pets'}
                       </button>
                     ))}
                   </div>
