@@ -1,3 +1,4 @@
+
 export enum AppState {
   TEMPLATE_SELECT = 'TEMPLATE_SELECT', 
   UPLOAD = 'UPLOAD',
@@ -56,6 +57,7 @@ export interface StickerItem {
   y: number;
   scale: number;
   rotation: number;
+  isFlipped?: boolean; // New: Support mirroring
 }
 
 export interface DecorationState {

@@ -645,6 +645,42 @@ const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: 
     ctx.restore();
 };
 
+/**
+ * DECORATION: Draw Date Stamp
+ */
+const drawDateStamp = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const now = new Date();
+    // '02 . 14 . 25' format
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const dateStr = `'${year} . ${month} . ${day}`;
+
+    ctx.save();
+    ctx.font = 'bold 32px "M PLUS Rounded 1c", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    
+    // Position: Bottom Right with padding
+    const x = width - 30;
+    const y = height - 30;
+
+    // Glow Effect (Film halation)
+    ctx.shadowColor = '#ff5e00'; // Orange/Red glow
+    ctx.shadowBlur = 10;
+    
+    // Text Color
+    ctx.fillStyle = '#ff9900'; // Retro Orange
+    ctx.fillText(dateStr, x, y);
+    
+    // Slight brighter inner core
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = '#ffcc80';
+    ctx.fillText(dateStr, x, y);
+
+    ctx.restore();
+};
+
 interface RenderParams {
   canvas: HTMLCanvasElement;
   personImage: HTMLImageElement;
@@ -652,6 +688,7 @@ interface RenderParams {
   frameImage?: HTMLImageElement | null;
   lightingEnabled: boolean;
   noiseLevel?: number;
+  showDate?: boolean;
   decorations?: DecorationState;
   selectedStickerId?: string | null;
 }
@@ -659,7 +696,7 @@ interface RenderParams {
 export const STICKER_BASE_SIZE = 150; // New base size for vector stickers
 
 export const renderComposite = (params: RenderParams) => {
-  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, decorations, selectedStickerId } = params;
+  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId } = params;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -734,7 +771,9 @@ export const renderComposite = (params: RenderParams) => {
           ctx.save();
           ctx.translate(sticker.x, sticker.y);
           ctx.rotate(sticker.rotation);
-          ctx.scale(sticker.scale, sticker.scale);
+          
+          // Handle Mirroring (Flipping)
+          ctx.scale(sticker.scale * (sticker.isFlipped ? -1 : 1), sticker.scale);
           
           // Switch based on ID prefix or explicit checks
           if (sticker.content.startsWith('y2k')) {
@@ -756,6 +795,7 @@ export const renderComposite = (params: RenderParams) => {
           }
 
           // SELECTION BOX
+          // Note: Selection Box is drawn inside the transformed context (including flip)
           if (selectedStickerId === sticker.id) {
              const boxSize = STICKER_BASE_SIZE * 1.2;
              const half = boxSize / 2;
@@ -791,11 +831,9 @@ export const renderComposite = (params: RenderParams) => {
              ctx.strokeStyle = '#fff';
              ctx.lineWidth = 2 / sticker.scale;
              ctx.beginPath();
-             // Diagonal arrow
              const arrowSize = handleRadius * 0.5;
              ctx.moveTo(half - arrowSize, half - arrowSize);
              ctx.lineTo(half + arrowSize, half + arrowSize);
-             // Arrowheads
              ctx.moveTo(half - arrowSize + 5, half - arrowSize); ctx.lineTo(half - arrowSize, half - arrowSize); ctx.lineTo(half - arrowSize, half - arrowSize + 5);
              ctx.moveTo(half + arrowSize - 5, half + arrowSize); ctx.lineTo(half + arrowSize, half + arrowSize); ctx.lineTo(half + arrowSize, half + arrowSize - 5);
              ctx.stroke();
@@ -809,183 +847,194 @@ export const renderComposite = (params: RenderParams) => {
   if (noiseLevel && noiseLevel > 0) {
       drawNoiseOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, noiseLevel);
   }
+
+  // 5. Date Stamp (New)
+  if (showDate) {
+      drawDateStamp(ctx, TARGET_WIDTH, TARGET_HEIGHT);
+  }
   
   ctx.restore();
 
-  // 5. Frame
+  // 6. Frame
   if (frameImage) {
     ctx.drawImage(frameImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
   }
 };
-// ... (omitting layout generation code as it remains unchanged) ...
-// Re-exporting necessary layout functions for App.tsx compatibility
-const getSource = (sources: HTMLCanvasElement[], index: number) => {
-    return sources[index % sources.length];
-};
 
-const drawStandardLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLCanvasElement[], WIDTH: number, HEIGHT: number, location: string, date: string) => {
-    // Grid Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    ctx.save();
-    const minorGridSize = 25; 
-    const majorGridSize = minorGridSize * 4; 
-    ctx.beginPath(); ctx.lineWidth = 1; ctx.strokeStyle = '#e2e8f0'; 
-    for (let x = 0; x <= WIDTH; x += minorGridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); }
-    for (let y = 0; y <= HEIGHT; y += minorGridSize) { ctx.moveTo(0, y); ctx.lineTo(WIDTH, y); }
-    ctx.stroke();
-    ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#94a3b8'; 
-    for (let x = 0; x <= WIDTH; x += majorGridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); }
-    for (let y = 0; y <= HEIGHT; y += majorGridSize) { ctx.moveTo(0, y); ctx.lineTo(WIDTH, y); }
-    ctx.stroke();
-    ctx.restore();
-
-    const SIDEBAR_X = 1300; 
-    const sidebarWidth = WIDTH - SIDEBAR_X;
-    const M_WIDTH = 580; const M_HEIGHT = 720; const GAP = 40;
-    const startMX = (SIDEBAR_X - (M_WIDTH * 2 + GAP)) / 2; const TOP_Y = 80;
-
-    [0, 1].forEach(i => {
-        const x = startMX + i * (M_WIDTH + GAP);
-        const pad = 10;
-        ctx.fillStyle = '#fff'; ctx.fillRect(x - pad, TOP_Y - pad, M_WIDTH + pad*2, M_HEIGHT + pad*2);
-        const img = getSource(sourceCanvases, i);
-        drawImageAspectFill(ctx, img, x, TOP_Y, M_WIDTH, M_HEIGHT, true);
-        ctx.lineWidth = 1; ctx.strokeStyle = '#94a3b8'; ctx.strokeRect(x, TOP_Y, M_WIDTH, M_HEIGHT);
-    });
-
-    const S_WIDTH = 265; const S_HEIGHT = 340; const GAP_S = 30;
-    const startSX = (SIDEBAR_X - (S_WIDTH * 4 + GAP_S * 3)) / 2; const BOTTOM_Y = 860; 
-
-    for(let i=0; i<4; i++) {
-        const x = startSX + i * (S_WIDTH + GAP_S);
-        const pad = 5;
-        ctx.fillStyle = '#fff'; ctx.fillRect(x - pad, BOTTOM_Y - pad, S_WIDTH + pad*2, S_HEIGHT + pad*2);
-        const img = getSource(sourceCanvases, i + 2);
-        drawImageAspectFill(ctx, img, x, BOTTOM_Y, S_WIDTH, S_HEIGHT, true);
-        ctx.lineWidth = 1; ctx.strokeStyle = '#94a3b8'; ctx.strokeRect(x, BOTTOM_Y, S_WIDTH, S_HEIGHT);
-    }
-
-    const contentX = SIDEBAR_X + 40; const contentW = sidebarWidth - 80; const cardY = 80; const cardH = 500;
-    ctx.save(); ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(0,0,0,0.1)'; ctx.shadowBlur = 15;
-    ctx.fillRect(contentX, cardY, contentW, cardH); ctx.shadowBlur = 0;
-    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.strokeRect(contentX, cardY, contentW, cardH);
-    ctx.textAlign = 'center'; const cx = contentX + contentW / 2;
-    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 36px sans-serif'; ctx.fillText("ID PHOTO", cx, cardY + 60);
-    ctx.beginPath(); ctx.moveTo(contentX + 20, cardY + 80); ctx.lineTo(contentX + contentW - 20, cardY + 80);
-    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.stroke();
-    const iconY = cardY + 140; ctx.fillStyle = '#3b82f6';
-    ctx.beginPath(); ctx.roundRect(cx - 35, iconY - 25, 70, 50, 8); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, iconY, 18, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(cx, iconY, 10, 0, Math.PI*2); ctx.fill();
-    ctx.textAlign = 'left'; const textX = contentX + 30;
-    ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.fillText("DATE", textX, cardY + 220);
-    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 24px monospace'; ctx.fillText(date, textX, cardY + 250);
-    ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.fillText("LOCATION", textX, cardY + 300);
-    ctx.fillStyle = '#0f172a'; ctx.font = 'bold 18px sans-serif';
-    const locLines = location.toUpperCase().split(' '); let ly = cardY + 330;
-    locLines.forEach((word, idx) => { if(idx > 2) return; ctx.fillText(word, textX, ly); ly += 25; });
-    ctx.save(); ctx.translate(cx + 60, cardY + 420); ctx.rotate(-20 * Math.PI / 180);
-    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.stroke();
-    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText("PERFECT", 0, 5);
-    ctx.restore(); ctx.restore();
-
-    const walletW = 220; const walletH = 300; const walletX = contentX + (contentW - walletW) / 2;
-    const walletY = BOTTOM_Y + (S_HEIGHT - walletH);
-    ctx.save(); ctx.strokeStyle = '#94a3b8'; ctx.setLineDash([5, 5]);
-    ctx.strokeRect(walletX - 10, walletY - 10, walletW + 20, walletH + 20);
-    ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText("WALLET SIZE", walletX + walletW/2, walletY - 15);
-    ctx.fillStyle = '#fff'; ctx.fillRect(walletX, walletY, walletW, walletH);
-    drawImageAspectFill(ctx, sourceCanvases[0], walletX, walletY, walletW, walletH, true);
-    ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = '#cbd5e1'; ctx.strokeRect(walletX, walletY, walletW, walletH);
-    ctx.restore();
-};
-
-const drawMagazineLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLCanvasElement[], WIDTH: number, HEIGHT: number, location: string, date: string) => {
-    // 1. Gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-    grad.addColorStop(0, '#FFC3EB'); grad.addColorStop(0.5, '#FFFFE0'); grad.addColorStop(1, '#C3FBD8'); 
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    // 2. Confetti logic (simplified to circles for brevity)
-    for (let i = 0; i < 30; i++) {
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.beginPath(); ctx.arc(Math.random()*WIDTH, Math.random()*HEIGHT, Math.random()*20, 0, Math.PI*2); ctx.fill();
-    }
-    // 3. Text
-    ctx.save(); ctx.translate(WIDTH / 2, 140); ctx.font = '900 85px "M PLUS Rounded 1c", sans-serif'; 
-    ctx.textAlign = 'center'; ctx.fillStyle = '#FF69B4'; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 8;
-    ctx.strokeText("MAGICAL TIME", 0, 0); ctx.fillText("MAGICAL TIME", 0, 0); ctx.restore();
-    // 4. Photos
-    const polaroidW = 380; const polaroidH = 480; const centerX = WIDTH / 2; const topYBase = 320; 
-    const positions = [{ x: centerX - 480, y: topYBase + 40, rot: -8 * Math.PI / 180 }, { x: centerX, y: topYBase, rot: 2 * Math.PI / 180 }, { x: centerX + 480, y: topYBase + 40, rot: 8 * Math.PI / 180 }];
-    positions.forEach((pos, i) => {
-        ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(pos.rot);
-        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(-polaroidW / 2, -polaroidH / 2, polaroidW, polaroidH);
-        const imgSize = 340; const imgYOffset = -polaroidH / 2 + 20;
-        const img = getSource(sourceCanvases, i);
-        drawImageAspectFill(ctx, img, -imgSize/2, imgYOffset, imgSize, imgSize, true);
-        ctx.restore();
-    });
-    // 5. Hero
-    const heroW = 700; const heroH = 500; const heroX = (WIDTH - heroW) / 2; const heroY = HEIGHT - heroH - 80;
-    ctx.save(); ctx.lineWidth = 15; ctx.strokeStyle = '#FFFFFF';
-    const heroImg = getSource(sourceCanvases, 3);
-    drawImageAspectFill(ctx, heroImg, heroX, heroY, heroW, heroH, true);
-    ctx.strokeRect(heroX, heroY, heroW, heroH);
-    ctx.restore();
-};
-
-const drawCinemaLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLCanvasElement[], WIDTH: number, HEIGHT: number) => {
-    ctx.fillStyle = '#111111'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    const stripWidth = 480; const gapBetweenStrips = 120; const totalGroupW = (stripWidth * 2) + gapBetweenStrips; const startX = (WIDTH - totalGroupW) / 2;
-    const drawStrip = (baseX: number) => {
-        const topMargin = 60; const footerSpace = 180; const photoGap = 20; const availableH = HEIGHT - topMargin - footerSpace; const photoH = (availableH - (photoGap * 3)) / 4; const sidePadding = 30; const photoW = stripWidth - (sidePadding * 2);
-        for (let i = 0; i < 4; i++) {
-            const y = topMargin + i * (photoH + photoGap); const x = baseX + sidePadding;
-            const img = getSource(sourceCanvases, i);
-            drawImageAspectFill(ctx, img, x, y, photoW, photoH, false, 0.25);
-        }
-        ctx.save(); ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.6; 
-        const leftHoleX = baseX + 8; const rightHoleX = baseX + stripWidth - 8 - 12;
-        for (let y = 30; y < HEIGHT - 20; y += (20 + 30)) { ctx.beginPath(); ctx.roundRect(leftHoleX, y, 12, 20, 2); ctx.fill(); ctx.beginPath(); ctx.roundRect(rightHoleX, y, 12, 20, 2); ctx.fill(); }
-        ctx.restore();
-        ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#FFFFFF'; ctx.font = '700 20px sans-serif';
-        const stripFooterY = HEIGHT - 80; ctx.fillText("LIFE4CUTS", baseX + stripWidth/2, stripFooterY);
-        ctx.restore();
-    };
-    drawStrip(startX); drawStrip(startX + stripWidth + gapBetweenStrips);
-};
-
-const drawWantedLayout = (ctx: CanvasRenderingContext2D, sourceCanvases: HTMLCanvasElement[], WIDTH: number, HEIGHT: number) => {
-    ctx.fillStyle = '#F4E4BC'; ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    ctx.lineWidth = 10; ctx.strokeStyle = '#8B4513'; ctx.strokeRect(60, 60, WIDTH - 120, HEIGHT - 120);
-    ctx.fillStyle = '#000000'; ctx.textAlign = 'center'; ctx.font = '900 200px serif'; ctx.fillText("WANTED", WIDTH/2, 280);
-    const photoW = 900; const photoH = 750; const photoX = (WIDTH - photoW) / 2; const photoY = 400;
-    drawImageAspectFill(ctx, sourceCanvases[0], photoX, photoY, photoW, photoH, true);
-    ctx.lineWidth = 8; ctx.strokeStyle = '#3E2723'; ctx.strokeRect(photoX, photoY, photoW, photoH);
-};
-
-export const generateLayoutSheet = (sourceCanvases: HTMLCanvasElement[], templateId: string, locationText: string = "TOKYO STATION", dateText: string = ""): string => {
-  if (sourceCanvases.length === 0) return '';
-  const MASTER_WIDTH = 1748; const MASTER_HEIGHT = 1181;
-  const virtualCanvas = document.createElement('canvas'); virtualCanvas.width = MASTER_WIDTH; virtualCanvas.height = MASTER_HEIGHT;
-  const vCtx = virtualCanvas.getContext('2d');
-  if (!vCtx) return '';
-  const date = dateText || new Date().toISOString().split('T')[0].replace(/-/g, '.');
-  switch (templateId) {
-      case 'magazine': drawMagazineLayout(vCtx, sourceCanvases, MASTER_WIDTH, MASTER_HEIGHT, locationText, date); break;
-      case 'cinema': drawCinemaLayout(vCtx, sourceCanvases, MASTER_WIDTH, MASTER_HEIGHT); break;
-      case 'wanted': drawWantedLayout(vCtx, sourceCanvases, MASTER_WIDTH, MASTER_HEIGHT); break;
-      default: drawStandardLayout(vCtx, sourceCanvases, MASTER_WIDTH, MASTER_HEIGHT, locationText, date); break;
-  }
-  const TARGET_WIDTH = 1500; const TARGET_HEIGHT = 1050;
-  const finalCanvas = document.createElement('canvas'); finalCanvas.width = TARGET_WIDTH; finalCanvas.height = TARGET_HEIGHT;
-  const ctx = finalCanvas.getContext('2d');
+export const generateLayoutSheet = (
+  sourceCanvases: HTMLCanvasElement[],
+  templateId: string,
+  locationText: string = "TOKYO"
+): string => {
+  const sheetCanvas = document.createElement('canvas');
+  const ctx = sheetCanvas.getContext('2d');
   if (!ctx) return '';
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT);
-  const scale = Math.min(TARGET_WIDTH / MASTER_WIDTH, TARGET_HEIGHT / MASTER_HEIGHT);
-  const drawW = MASTER_WIDTH * scale; const drawH = MASTER_HEIGHT * scale;
-  const drawX = (TARGET_WIDTH - drawW) / 2; const drawY = (TARGET_HEIGHT - drawH) / 2;
-  ctx.drawImage(virtualCanvas, drawX, drawY, drawW, drawH);
-  return finalCanvas.toDataURL('image/png', 1.0);
+
+  const PADDING = 40;
+  
+  if (templateId === 'cinema') {
+    // Black Film Strip Style (Updated to match reference)
+    const IMG_W = 400;
+    const IMG_H = 560; // 5:7 ratio
+    const GAP_Y = 20; // Gap between photos
+    
+    // Film strip styling
+    const HOLE_W = 12;
+    const HOLE_H = 8;
+    const HOLE_GAP = 15;
+    const SIDE_PADDING = 30; // Space for holes
+    
+    const TOP_MARGIN = 50;
+    const BOTTOM_MARGIN = 100;
+    
+    const STRIP_W = IMG_W + (SIDE_PADDING * 2);
+    const STRIP_H = TOP_MARGIN + (IMG_H * 4) + (GAP_Y * 3) + BOTTOM_MARGIN;
+    
+    const GAP_BETWEEN_STRIPS = 50;
+    const OUTER_PADDING = 40; // White border around the black print
+    
+    sheetCanvas.width = (STRIP_W * 2) + GAP_BETWEEN_STRIPS + (OUTER_PADDING * 2);
+    sheetCanvas.height = STRIP_H + (OUTER_PADDING * 2);
+    
+    // 1. White Paper Background (The border)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    
+    // 2. Black Film Background
+    ctx.fillStyle = '#111111';
+    const innerX = OUTER_PADDING;
+    const innerY = OUTER_PADDING;
+    const innerW = sheetCanvas.width - (OUTER_PADDING * 2);
+    const innerH = sheetCanvas.height - (OUTER_PADDING * 2);
+    ctx.fillRect(innerX, innerY, innerW, innerH);
+    
+    const drawStrip = (offsetX: number) => {
+        // Draw Sprocket Holes
+        ctx.fillStyle = '#555555'; // Dark grey holes
+        const holeStartX = offsetX + (SIDE_PADDING - HOLE_W) / 2;
+        const holeEndX = offsetX + STRIP_W - (SIDE_PADDING + HOLE_W) / 2;
+        
+        for (let y = 0; y < STRIP_H; y += (HOLE_H + HOLE_GAP)) {
+             // Left Holes
+             ctx.fillRect(innerX + holeStartX, innerY + y, HOLE_W, HOLE_H);
+             // Right Holes
+             ctx.fillRect(innerX + holeEndX, innerY + y, HOLE_W, HOLE_H);
+        }
+
+        let y = innerY + TOP_MARGIN;
+        
+        sourceCanvases.slice(0, 4).forEach(canv => {
+            // Draw Photo
+            ctx.drawImage(canv, innerX + offsetX + SIDE_PADDING, y, IMG_W, IMG_H);
+            y += IMG_H + GAP_Y;
+        });
+        
+        // Footer Text
+        y += 50;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px "M PLUS Rounded 1c", sans-serif'; 
+        ctx.textAlign = 'center';
+        ctx.fillText('LIFE4CUTS', innerX + offsetX + STRIP_W/2, y);
+        
+        ctx.font = '16px "M PLUS Rounded 1c", sans-serif';
+        ctx.fillStyle = '#888888';
+        const date = new Date().toLocaleDateString().replace(/\//g, '.');
+        ctx.fillText(date, innerX + offsetX + STRIP_W/2, y + 25);
+    };
+
+    // Calculate offsets for two strips centered in the black area
+    // Strip 1 starts at 0 (relative to inner box)
+    drawStrip(0);
+    // Strip 2 starts after Strip 1 width + Gap
+    drawStrip(STRIP_W + GAP_BETWEEN_STRIPS);
+    
+  } else if (templateId === 'magazine') {
+     // Collage 2x2
+     const IMG_W = 600;
+     const IMG_H = 840;
+     const MARGIN = 60;
+     
+     sheetCanvas.width = (IMG_W * 2) + (MARGIN * 3);
+     sheetCanvas.height = (IMG_H * 2) + (MARGIN * 3) + 200; // Header space
+     
+     // Kawaii BG
+     const grad = ctx.createLinearGradient(0,0, sheetCanvas.width, sheetCanvas.height);
+     grad.addColorStop(0, '#ff9a9e');
+     grad.addColorStop(1, '#fecfef');
+     ctx.fillStyle = grad;
+     ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+     
+     // Title
+     ctx.fillStyle = '#fff';
+     ctx.shadowColor = 'rgba(0,0,0,0.2)';
+     ctx.shadowBlur = 10;
+     ctx.font = 'italic bold 100px sans-serif';
+     ctx.textAlign = 'center';
+     ctx.fillText('Besties', sheetCanvas.width/2, 140);
+     ctx.shadowBlur = 0;
+     
+     const coords = [
+         { x: MARGIN, y: 200 },
+         { x: MARGIN + IMG_W + MARGIN, y: 200 },
+         { x: MARGIN, y: 200 + IMG_H + MARGIN },
+         { x: MARGIN + IMG_W + MARGIN, y: 200 + IMG_H + MARGIN },
+     ];
+     
+     sourceCanvases.slice(0, 4).forEach((canv, i) => {
+         if(coords[i]) {
+             // White container
+             ctx.fillStyle = '#fff';
+             ctx.fillRect(coords[i].x - 10, coords[i].y - 10, IMG_W + 20, IMG_H + 20);
+             // Image
+             ctx.drawImage(canv, coords[i].x, coords[i].y, IMG_W, IMG_H);
+         }
+     });
+
+  } else if (templateId === 'wanted') {
+      // Poster
+      const IMG_W = 900;
+      const IMG_H = 1260;
+      sheetCanvas.width = 1200;
+      sheetCanvas.height = 1800;
+      
+      ctx.fillStyle = '#e8dcb5'; // Paper
+      ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+      
+      // Grain
+      ctx.globalAlpha = 0.1;
+      // ... assume noise or just plain color for now
+      ctx.globalAlpha = 1.0;
+      
+      ctx.font = 'bold 140px serif';
+      ctx.fillStyle = '#3e2723';
+      ctx.textAlign = 'center';
+      ctx.fillText('WANTED', sheetCanvas.width/2, 180);
+      
+      const x = (sheetCanvas.width - IMG_W)/2;
+      const y = 250;
+      
+      if (sourceCanvases[0]) {
+          ctx.drawImage(sourceCanvases[0], x, y, IMG_W, IMG_H);
+          ctx.lineWidth = 15;
+          ctx.strokeStyle = '#3e2723';
+          ctx.strokeRect(x, y, IMG_W, IMG_H);
+      }
+      
+      ctx.font = 'bold 80px serif';
+      ctx.fillText('REWARD', sheetCanvas.width/2, y + IMG_H + 100);
+      ctx.font = 'bold 100px serif';
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillText('$1,000,000', sheetCanvas.width/2, y + IMG_H + 220);
+
+  } else {
+      // Standard / Fallback (Just the image)
+      if (sourceCanvases.length > 0) {
+          const c = sourceCanvases[0];
+          sheetCanvas.width = c.width;
+          sheetCanvas.height = c.height;
+          ctx.drawImage(c, 0, 0);
+      }
+  }
+
+  return sheetCanvas.toDataURL('image/png', 0.95);
 };
