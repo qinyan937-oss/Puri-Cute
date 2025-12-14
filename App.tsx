@@ -163,7 +163,20 @@ export default function App() {
             <h1 className="text-3xl font-bold text-pink-500 mb-2 tracking-wide flex items-center justify-center">
                 <SparklesIcon /> Puri-Cute
             </h1>
-            <p className="text-slate-500 mb-8">Select a layout style to start!</p>
+            <p className="text-slate-500 mb-6">Select a layout style to start!</p>
+
+            <div className="mb-8 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-pink-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">✨ Tip for best results</p>
+                <a 
+                  href="https://www.photoroom.com/tools/background-remover" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 text-purple-600 font-bold bg-white py-2 rounded-lg border border-purple-100 hover:bg-purple-50 transition-colors"
+                >
+                  <span className="text-lg">✂️</span> 
+                  <span>Use <span className="underline decoration-2 underline-offset-2">PhotoRoom</span> to remove background</span>
+                </a>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
                 {LAYOUT_TEMPLATES.map(template => (
