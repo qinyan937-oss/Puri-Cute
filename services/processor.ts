@@ -147,11 +147,15 @@ interface RenderParams {
   lightingEnabled: boolean;
   noiseLevel?: number;
   decorations?: DecorationState;
+  selectedStickerId?: string | null; // NEW: Highlight selected sticker
 }
+
+// Constant for shared logic
+export const STICKER_FONT_SIZE = 150;
 
 // Renders a SINGLE processed image (with BG and Frame)
 export const renderComposite = (params: RenderParams) => {
-  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, decorations } = params;
+  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, decorations, selectedStickerId } = params;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -205,8 +209,6 @@ export const renderComposite = (params: RenderParams) => {
   drawImageAspectFill(ctx, personImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT, false, 0.2);
   
   // 3. Decorations (Graffiti & Stickers)
-  // Drawn BEFORE noise so they get the retro effect too, or AFTER? 
-  // Let's draw BEFORE frame but AFTER image.
   
   if (decorations) {
       // 3.1 Strokes
@@ -235,13 +237,43 @@ export const renderComposite = (params: RenderParams) => {
           ctx.scale(sticker.scale, sticker.scale);
           
           // Draw Text (Emoji)
-          ctx.font = "150px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+          ctx.font = `${STICKER_FONT_SIZE}px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           // Shadow for pop
           ctx.shadowColor = "rgba(0,0,0,0.2)";
           ctx.shadowBlur = 10;
           ctx.fillText(sticker.content, 0, 0);
+
+          // DRAW SELECTION BOX
+          if (selectedStickerId === sticker.id) {
+             const boxSize = STICKER_FONT_SIZE * 1.2;
+             const half = boxSize / 2;
+             
+             // Box
+             ctx.lineWidth = 4 / sticker.scale; 
+             ctx.strokeStyle = '#3b82f6'; // Blue
+             ctx.setLineDash([15, 10]);
+             ctx.strokeRect(-half, -half, boxSize, boxSize);
+             
+             // Delete Handle (Top Right)
+             const handleRadius = 24 / sticker.scale;
+             ctx.setLineDash([]);
+             ctx.fillStyle = '#ef4444'; // Red
+             ctx.beginPath();
+             ctx.arc(half, -half, handleRadius, 0, Math.PI*2);
+             ctx.fill();
+             ctx.strokeStyle = '#fff';
+             ctx.lineWidth = 3 / sticker.scale;
+             ctx.beginPath();
+             // Draw X
+             const xOff = handleRadius * 0.4;
+             ctx.moveTo(half - xOff, -half - xOff);
+             ctx.lineTo(half + xOff, -half + xOff);
+             ctx.moveTo(half + xOff, -half - xOff);
+             ctx.lineTo(half - xOff, -half + xOff);
+             ctx.stroke();
+          }
           
           ctx.restore();
       });

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AppState, BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, Stroke, StickerItem } from './types';
 import { BACKGROUND_PRESETS, FRAME_PRESETS, LAYOUT_TEMPLATES, STICKER_PRESETS, PEN_COLORS } from './constants';
-import { loadImage, renderComposite, generateLayoutSheet } from './services/processor';
+import { loadImage, renderComposite, generateLayoutSheet, STICKER_FONT_SIZE } from './services/processor';
 import { playSound } from './services/audio';
 import Button from './components/Button';
 
@@ -68,7 +68,12 @@ export default function App() {
   const [editTab, setEditTab] = useState<'adjust' | 'draw' | 'sticker'>('adjust');
   const [decorations, setDecorations] = useState<DecorationState[]>([]);
   const [penColor, setPenColor] = useState<string>(PEN_COLORS[0]);
+  
+  // Interaction State (Drawing & Stickers)
   const [isDrawing, setIsDrawing] = useState(false);
+  const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   // Camera State
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -119,14 +124,15 @@ export default function App() {
                   frameImage: frameImg,
                   lightingEnabled: lightingEnabled,
                   noiseLevel: noiseLevel,
-                  decorations: decorations[index] || { strokes: [], stickers: [] }
+                  decorations: decorations[index] || { strokes: [], stickers: [] },
+                  selectedStickerId: selectedStickerId // Pass selection to renderer
                });
            }
         });
       }
     };
     updateCanvases();
-  }, [appState, uploadedImages, selectedBg, selectedFrame, lightingEnabled, noiseLevel, decorations]);
+  }, [appState, uploadedImages, selectedBg, selectedFrame, lightingEnabled, noiseLevel, decorations, selectedStickerId]);
 
   // --- EVENT HANDLERS ---
 
@@ -252,7 +258,7 @@ export default function App() {
      }
   };
 
-  // --- DRAWING LOGIC ---
+  // --- DRAWING & STICKER INTERACTION LOGIC ---
   const getCanvasCoords = (e: React.PointerEvent, canvas: HTMLCanvasElement) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -264,88 +270,177 @@ export default function App() {
   };
 
   const handlePointerDown = (e: React.PointerEvent, index: number) => {
-      if (editTab !== 'draw') return;
       const canvas = canvasRefs.current[index];
       if (!canvas) return;
+      const coords = getCanvasCoords(e, canvas);
 
-      setIsDrawing(true);
-      const point = getCanvasCoords(e, canvas);
+      // --- MODE: DRAW ---
+      if (editTab === 'draw') {
+         setIsDrawing(true);
+         setSelectedStickerId(null); // Deselect sticker when drawing
+         currentStrokeRef.current = {
+             color: penColor,
+             width: 15,
+             points: [coords]
+         };
+         return;
+      }
+
+      // --- MODE: STICKER / ADJUST ---
+      // Hit Test Stickers (Top-most first, so reverse array check)
+      const currentDecorations = decorations[index];
+      if (!currentDecorations) return;
       
-      currentStrokeRef.current = {
-          color: penColor,
-          width: 15, // Thick marker style
-          points: [point]
-      };
+      let hitStickerId: string | null = null;
+      let action: 'select' | 'delete' = 'select';
+
+      for (let i = currentDecorations.stickers.length - 1; i >= 0; i--) {
+          const s = currentDecorations.stickers[i];
+          const halfSize = (STICKER_FONT_SIZE * 1.2 * s.scale) / 2;
+          
+          // Simple AABB Hit Test (Assuming small rotation)
+          // Transform touch point to local sticker space would be more accurate, 
+          // but for simple UI, box check is fine.
+          if (
+              coords.x >= s.x - halfSize && 
+              coords.x <= s.x + halfSize &&
+              coords.y >= s.y - halfSize &&
+              coords.y <= s.y + halfSize
+          ) {
+              // Check if hitting the Delete Handle (Top Right)
+              // Handle is at (halfSize, -halfSize) relative to center
+              // We'll give it a generous hit radius
+              if (selectedStickerId === s.id) {
+                  const handleX = s.x + halfSize;
+                  const handleY = s.y - halfSize;
+                  const dist = Math.sqrt(Math.pow(coords.x - handleX, 2) + Math.pow(coords.y - handleY, 2));
+                  if (dist < 40) { // 40px hit radius
+                      action = 'delete';
+                      hitStickerId = s.id;
+                      break;
+                  }
+              }
+              
+              hitStickerId = s.id;
+              break;
+          }
+      }
+
+      if (hitStickerId) {
+          if (action === 'delete') {
+              // Delete Logic
+              play('cancel');
+              setDecorations(prev => {
+                  const next = [...prev];
+                  next[index] = {
+                      ...next[index],
+                      stickers: next[index].stickers.filter(s => s.id !== hitStickerId)
+                  };
+                  return next;
+              });
+              setSelectedStickerId(null);
+          } else {
+              // Select & Drag Logic
+              setSelectedStickerId(hitStickerId);
+              const s = currentDecorations.stickers.find(st => st.id === hitStickerId);
+              if (s) {
+                  setIsDraggingSticker(true);
+                  setDragOffset({ x: coords.x - s.x, y: coords.y - s.y });
+              }
+          }
+      } else {
+          // Clicked empty space
+          setSelectedStickerId(null);
+      }
   };
 
   const handlePointerMove = (e: React.PointerEvent, index: number) => {
-      if (!isDrawing || editTab !== 'draw' || !currentStrokeRef.current) return;
       const canvas = canvasRefs.current[index];
       if (!canvas) return;
+      const coords = getCanvasCoords(e, canvas);
 
-      const point = getCanvasCoords(e, canvas);
-      currentStrokeRef.current.points.push(point);
-
-      // Real-time visual feedback (Direct draw to context for performance)
-      // This will be overwritten by renderComposite on state update, but gives instant feel
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.strokeStyle = currentStrokeRef.current.color;
-          ctx.lineWidth = currentStrokeRef.current.width;
-          ctx.beginPath();
-          const len = currentStrokeRef.current.points.length;
-          if (len >= 2) {
-              const p1 = currentStrokeRef.current.points[len - 2];
-              const p2 = currentStrokeRef.current.points[len - 1];
-              ctx.moveTo(p1.x, p1.y);
-              ctx.lineTo(p2.x, p2.y);
-              ctx.stroke();
+      // --- MODE: DRAW ---
+      if (isDrawing && editTab === 'draw' && currentStrokeRef.current) {
+          currentStrokeRef.current.points.push(coords);
+          // Visual feedback
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.strokeStyle = currentStrokeRef.current.color;
+              ctx.lineWidth = currentStrokeRef.current.width;
+              ctx.beginPath();
+              const len = currentStrokeRef.current.points.length;
+              if (len >= 2) {
+                  const p1 = currentStrokeRef.current.points[len - 2];
+                  const p2 = currentStrokeRef.current.points[len - 1];
+                  ctx.moveTo(p1.x, p1.y);
+                  ctx.lineTo(p2.x, p2.y);
+                  ctx.stroke();
+              }
           }
+          return;
+      }
+
+      // --- MODE: DRAG STICKER ---
+      if (isDraggingSticker && selectedStickerId) {
+          setDecorations(prev => {
+              const next = [...prev];
+              const stickers = [...next[index].stickers];
+              const sIdx = stickers.findIndex(s => s.id === selectedStickerId);
+              if (sIdx > -1) {
+                  stickers[sIdx] = {
+                      ...stickers[sIdx],
+                      x: coords.x - dragOffset.x,
+                      y: coords.y - dragOffset.y
+                  };
+                  next[index] = { ...next[index], stickers };
+              }
+              return next;
+          });
       }
   };
 
   const handlePointerUp = (index: number) => {
-      if (!isDrawing || !currentStrokeRef.current) return;
+      // End Drawing
+      if (isDrawing && currentStrokeRef.current) {
+          const newStroke = currentStrokeRef.current;
+          setDecorations(prev => {
+              const next = [...prev];
+              next[index] = {
+                  ...next[index],
+                  strokes: [...next[index].strokes, newStroke]
+              };
+              return next;
+          });
+          currentStrokeRef.current = null;
+      }
       setIsDrawing(false);
-      
-      // Commit stroke to React State
-      const newStroke = currentStrokeRef.current;
-      currentStrokeRef.current = null;
 
-      setDecorations(prev => {
-          const next = [...prev];
-          next[index] = {
-              ...next[index],
-              strokes: [...next[index].strokes, newStroke]
-          };
-          return next;
-      });
+      // End Dragging
+      setIsDraggingSticker(false);
   };
 
   const addSticker = (stickerContent: string) => {
-      // Add sticker to ALL photos or just the first? 
-      // For simplicity in a multi-frame layout, let's add to the first active visible one or just the first one.
-      // Better: Add to ALL slots by default or specific.
-      // Let's add to the FIRST slot for now, or random.
-      // Let's go with: Randomly place on all slots to save time for user? 
-      // No, user wants control. Let's add to the currently "touched" slot? 
-      // UI Limitation: We don't have a "selected slot". 
-      // Solution: Add to ALL slots in the center. User can clear.
-      
-      setDecorations(prev => prev.map(dec => ({
-          ...dec,
-          stickers: [...dec.stickers, {
-              id: `sticker-${Date.now()}-${Math.random()}`,
-              content: stickerContent,
-              x: 500, // Center of 1000
-              y: 700, // Center of 1400
-              scale: 1,
-              rotation: (Math.random() - 0.5) * 0.5 // Slight random tilt
-          }]
-      })));
+      // Add to ALL slots by default for quick decoration, 
+      // or just the first one? Let's do random placement on ALL slots.
       play('pop');
+      setDecorations(prev => prev.map(dec => {
+          const id = `sticker-${Date.now()}-${Math.random()}`;
+          return {
+              ...dec,
+              stickers: [...dec.stickers, {
+                  id: id,
+                  content: stickerContent,
+                  x: 500, // Center
+                  y: 700, // Center
+                  scale: 1,
+                  rotation: (Math.random() - 0.5) * 0.5
+              }]
+          };
+      }));
+      // Select the last added sticker (on the first photo) to show feedback
+      // Note: This logic is a bit tricky with multiple photos, but user can just click to select.
   };
 
   const clearDecorations = (index: number) => {
@@ -363,11 +458,14 @@ export default function App() {
     if (uploadedImages.length === 0) return;
     play('shutter');
     triggerFlash();
+    
+    // Deselect sticker before printing so box doesn't show
+    setSelectedStickerId(null);
 
-    const sourceCanvases = canvasRefs.current.filter(c => c !== null) as HTMLCanvasElement[];
-    if (sourceCanvases.length === 0) return;
-
+    // Wait for state update (selection removal) to render
     setTimeout(() => {
+        const sourceCanvases = canvasRefs.current.filter(c => c !== null) as HTMLCanvasElement[];
+        if (sourceCanvases.length === 0) return;
         const layoutSrc = generateLayoutSheet(sourceCanvases, selectedTemplate.id, customLocation);
         setLayoutImageSrc(layoutSrc);
         play('success');
@@ -556,7 +654,7 @@ export default function App() {
                              onClick={(e) => { e.stopPropagation(); clearDecorations(index); }}
                              className="absolute top-2 right-2 bg-slate-800/50 text-white text-[10px] px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                              Clear
+                              Reset
                           </button>
                       </div>
                   </div>
@@ -575,7 +673,7 @@ export default function App() {
             ].map((tab) => (
                 <button
                     key={tab.id}
-                    onClick={() => { play('pop'); setEditTab(tab.id as any); }}
+                    onClick={() => { play('pop'); setEditTab(tab.id as any); setSelectedStickerId(null); }}
                     className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${editTab === tab.id ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-50/50' : 'text-slate-400'}`}
                 >
                     <span>{tab.icon}</span> {tab.label}
