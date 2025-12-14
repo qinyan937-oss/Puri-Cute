@@ -113,17 +113,55 @@ const drawHeart = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.restore();
 };
 
+/**
+ * EFFECT: Draw Noise Overlay (Film Grain)
+ */
+const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number = 0.35) => {
+    // Create a small pattern canvas for performance
+    const patternSize = 100;
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = patternSize;
+    pCanvas.height = patternSize;
+    const pCtx = pCanvas.getContext('2d');
+    if (!pCtx) return;
+
+    const imgData = pCtx.createImageData(patternSize, patternSize);
+    const buffer = new Uint32Array(imgData.data.buffer);
+
+    for (let i = 0; i < buffer.length; i++) {
+        // Random grey value (0-255)
+        const val = Math.random() * 255;
+        // ABGR format (Little Endian): Alpha=255, B=val, G=val, R=val
+        buffer[i] = (255 << 24) | (val << 16) | (val << 8) | val;
+    }
+    pCtx.putImageData(imgData, 0, 0);
+
+    ctx.save();
+    // 'overlay' blends the noise naturally: 
+    // < 50% grey darkens the image, > 50% grey lightens it.
+    ctx.globalCompositeOperation = 'overlay'; 
+    ctx.globalAlpha = intensity;
+    
+    const pattern = ctx.createPattern(pCanvas, 'repeat');
+    if (pattern) {
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, width, height);
+    }
+    ctx.restore();
+};
+
 interface RenderParams {
   canvas: HTMLCanvasElement;
   personImage: HTMLImageElement;
   backgroundImage?: BackgroundPreset;
   frameImage?: HTMLImageElement | null;
   lightingEnabled: boolean;
+  noiseLevel?: number; // 0.0 to 1.0 (Recommended max around 0.5)
 }
 
 // Renders a SINGLE processed image (with BG and Frame)
 export const renderComposite = (params: RenderParams) => {
-  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled } = params;
+  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel } = params;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -177,7 +215,12 @@ export const renderComposite = (params: RenderParams) => {
   // Editor view: Use focusY=0.2 (20% from top) to frame face nicely without cutting forehead or chin
   drawImageAspectFill(ctx, personImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT, false, 0.2);
   
-  // No soft glow overlay in main render to keep it crisp, filter handles the look
+  // 2.1 Apply Noise (Grain) if enabled
+  // Applied AFTER the image is drawn but BEFORE the frame overlay
+  if (noiseLevel && noiseLevel > 0) {
+      drawNoiseOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, noiseLevel);
+  }
+  
   ctx.restore();
 
   // 3. Frame
