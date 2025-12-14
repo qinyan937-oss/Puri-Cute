@@ -1,0 +1,5 @@
+{
+  "name": "Puri-Cute: Japanese Photo Booth",
+  "description": "A Japanese Purikura-style photo booth app. Features automatic background removal, soft Japanese-style lighting filters, pastel background selection, and custom frame composition. Runs entirely in the browser.",
+  "requestFramePermissions": []
+}
