@@ -1,9 +1,115 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { AppState, BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, Stroke, StickerItem } from './types';
+import { AppState, BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, Stroke, StickerItem, ImageTransform } from './types';
 import { BACKGROUND_PRESETS, FRAME_PRESETS, LAYOUT_TEMPLATES, STICKER_CATEGORIES, PEN_COLORS } from './constants';
 import { loadImage, renderComposite, generateLayoutSheet, STICKER_BASE_SIZE } from './services/processor';
 import { playSound } from './services/audio';
 import Button from './components/Button';
+
+// --- TRANSLATIONS ---
+const TRANSLATIONS = {
+  en: {
+    appTitle: "Puri-Cute",
+    appSubtitle: "✨ Photo Booth & Sticker Maker ✨",
+    shots: "Shot",
+    shots_plural: "Shots",
+    // Templates
+    tpl_cinema: "Life4Cuts",
+    tpl_cinema_desc: "4-Frame Strip",
+    tpl_magazine: "Magazine",
+    tpl_magazine_desc: "Kawaii Collage",
+    tpl_standard: "ID Photo",
+    tpl_standard_desc: "Standard Grid",
+    tpl_wanted: "Wanted",
+    tpl_wanted_desc: "Single Poster",
+    // Upload
+    choose_mode: "Choose how to create your purikura!",
+    start_camera: "Start Camera",
+    burst_mode: "Countdown Burst Mode",
+    upload_photos: "Upload Photos",
+    pick_images: "Pick up to {n} images",
+    remove_bg_tip: "Tip: Remove background for best results (PhotoRoom) ✨",
+    cancel: "Cancel",
+    // Editor
+    reset: "Reset",
+    tab_adjust: "Adjust",
+    tab_draw: "Graffiti",
+    tab_sticker: "Stickers",
+    beauty_filter: "Beauty Filter",
+    retro_grain: "Retro Grain",
+    date_stamp: "Date Stamp",
+    draw_hint: "Draw directly on the photos!",
+    edit_photo_hint: "Drag photo to move. Scale:",
+    undo: "Undo",
+    // Stickers
+    flip: "Flip",
+    front: "Front",
+    delete: "Delete",
+    cat_y2k: "✨ Y2K",
+    cat_ribbon: "🎀 Ribbon",
+    cat_doodle: "🖍️ Doodle",
+    cat_retro: "🎄 Retro",
+    cat_cyber: "🤖 Cyber",
+    // Layout
+    finish: "Finish & Print ✨",
+    preview_title: "Print Preview",
+    ready_msg: "🎉 Ready to Print!",
+    save_hint: "Save image to your gallery.",
+    save_btn: "Save Image 📥",
+    back: "Back",
+    loading: "Processing..."
+  },
+  zh: {
+    appTitle: "Puri-Cute 大头贴",
+    appSubtitle: "✨ 日系大头贴生成器 ✨",
+    shots: "张",
+    shots_plural: "张",
+    // Templates
+    tpl_cinema: "人生四格",
+    tpl_cinema_desc: "经典胶卷风",
+    tpl_magazine: "杂志拼贴",
+    tpl_magazine_desc: "可爱排版",
+    tpl_standard: "证件照",
+    tpl_standard_desc: "标准排版",
+    tpl_wanted: "通缉令",
+    tpl_wanted_desc: "悬赏海报",
+    // Upload
+    choose_mode: "选择制作方式",
+    start_camera: "开启相机",
+    burst_mode: "倒计时连拍模式",
+    upload_photos: "上传照片",
+    pick_images: "选择 {n} 张图片",
+    remove_bg_tip: "提示：点此使用 PhotoRoom 在线抠图效果更好哦！✨",
+    cancel: "取消",
+    // Editor
+    reset: "重置",
+    tab_adjust: "调节",
+    tab_draw: "涂鸦",
+    tab_sticker: "贴纸",
+    beauty_filter: "美颜滤镜",
+    retro_grain: "复古颗粒",
+    date_stamp: "日期水印",
+    draw_hint: "直接在照片上涂鸦吧！",
+    edit_photo_hint: "拖动照片可移动位置。缩放：",
+    undo: "撤销",
+    // Stickers
+    flip: "翻转",
+    front: "置顶",
+    delete: "删除",
+    cat_y2k: "✨ 千禧风",
+    cat_ribbon: "🎀 蝴蝶结",
+    cat_doodle: "🖍️ 涂鸦",
+    cat_retro: "🎄 复古",
+    cat_cyber: "🤖 赛博",
+    // Layout
+    finish: "生成打印 ✨",
+    preview_title: "打印预览",
+    ready_msg: "🎉 制作完成！",
+    save_hint: "保存图片到相册",
+    save_btn: "保存图片 📥",
+    back: "返回",
+    loading: "处理中..."
+  }
+};
 
 // --- SVG Icons ---
 const UploadIcon = () => (
@@ -52,6 +158,9 @@ const VolumeIcon = ({ muted }: { muted: boolean }) => (
 // --- MAIN APP ---
 
 export default function App() {
+  const [language, setLanguage] = useState<'en' | 'zh'>('zh'); // Default to Chinese
+  const t = TRANSLATIONS[language];
+
   const [appState, setAppState] = useState<AppState>(AppState.TEMPLATE_SELECT);
   const [uploadedImages, setUploadedImages] = useState<HTMLImageElement[]>([]);
   
@@ -71,13 +180,19 @@ export default function App() {
   const [stickerCategory, setStickerCategory] = useState<'Y2K' | 'RIBBON' | 'DOODLE' | 'RETRO' | 'CYBER'>('Y2K');
   const [decorations, setDecorations] = useState<DecorationState[]>([]);
   const [penColor, setPenColor] = useState<string>(PEN_COLORS[0]);
+
+  // Image Transform State (Pan/Zoom)
+  const [imgTransforms, setImgTransforms] = useState<ImageTransform[]>([]);
   
   // Interaction State (Drawing & Stickers)
   const [isDrawing, setIsDrawing] = useState(false);
   const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const [isResizingSticker, setIsResizingSticker] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
+  // Interaction State (Photo Pan)
+  const [isPanningPhoto, setIsPanningPhoto] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 }); // Shared for sticker and photo panning (start point)
   const [initialResizeState, setInitialResizeState] = useState<{dist: number, scale: number} | null>(null);
   
   // Track which photo was last interacted with for Undo purposes
@@ -132,16 +247,17 @@ export default function App() {
                   frameImage: frameImg,
                   lightingEnabled: lightingEnabled,
                   noiseLevel: noiseLevel,
-                  showDate: showDate, // Pass new param
+                  showDate: showDate,
                   decorations: decorations[index] || { strokes: [], stickers: [] },
-                  selectedStickerId: selectedStickerId // Pass selection to renderer
+                  selectedStickerId: selectedStickerId,
+                  imageTransform: imgTransforms[index] || { x: 0, y: 0, scale: 1 }
                });
            }
         });
       }
     };
     updateCanvases();
-  }, [appState, uploadedImages, selectedBg, selectedFrame, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId]);
+  }, [appState, uploadedImages, selectedBg, selectedFrame, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId, imgTransforms]);
 
   // --- EVENT HANDLERS ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,8 +275,10 @@ export default function App() {
         }));
 
         setUploadedImages(loadedImages);
-        // Init decorations
+        // Init decorations & transforms
         setDecorations(new Array(loadedImages.length).fill(null).map(() => ({ strokes: [], stickers: [] })));
+        setImgTransforms(new Array(loadedImages.length).fill(null).map(() => ({ x: 0, y: 0, scale: 1 })));
+        
         setLastActiveIndex(0);
         
         canvasRefs.current = [];
@@ -177,7 +295,6 @@ export default function App() {
   const startCamera = async () => {
       try {
           // Attempt 1: Optimal Mobile Portrait settings
-          // Many desktop webcams might fail this specific constraint (e.g. facingMode 'user' not found or resolution too high)
           let stream;
           try {
              stream = await navigator.mediaDevices.getUserMedia({ 
@@ -248,6 +365,7 @@ export default function App() {
       stopCamera();
       setUploadedImages(captured);
       setDecorations(new Array(captured.length).fill(null).map(() => ({ strokes: [], stickers: [] })));
+      setImgTransforms(new Array(captured.length).fill(null).map(() => ({ x: 0, y: 0, scale: 1 })));
       setLastActiveIndex(0);
       canvasRefs.current = [];
       setAppState(AppState.EDIT);
@@ -270,7 +388,7 @@ export default function App() {
   };
 
   // --- DRAWING & STICKER INTERACTION LOGIC ---
-  const getCanvasCoords = (e: React.PointerEvent, canvas: HTMLCanvasElement) => {
+  const getCanvasCoords = (e: React.MouseEvent | React.PointerEvent, canvas: HTMLCanvasElement) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -281,11 +399,16 @@ export default function App() {
   };
 
   const handlePointerDown = (e: React.PointerEvent, index: number) => {
+      // PREVENT DEFAULT SCROLLING/ZOOMING on touch devices
+      e.preventDefault(); 
+      e.currentTarget.setPointerCapture(e.pointerId); // Lock pointer
+      
       setLastActiveIndex(index);
       const canvas = canvasRefs.current[index];
       if (!canvas) return;
       const coords = getCanvasCoords(e, canvas);
 
+      // --- Mode: Draw ---
       if (editTab === 'draw') {
          setIsDrawing(true);
          setSelectedStickerId(null); 
@@ -297,6 +420,19 @@ export default function App() {
          return;
       }
 
+      // --- Mode: Adjust (Photo Panning) ---
+      if (editTab === 'adjust') {
+          setIsPanningPhoto(true);
+          // Store current mouse pos relative to existing transform
+          const currentTransform = imgTransforms[index] || { x: 0, y: 0, scale: 1 };
+          setDragOffset({ 
+              x: coords.x - currentTransform.x, 
+              y: coords.y - currentTransform.y 
+          });
+          return;
+      }
+
+      // --- Mode: Sticker ---
       const currentDecorations = decorations[index];
       if (!currentDecorations) return;
       
@@ -358,28 +494,54 @@ export default function App() {
   };
 
   const handlePointerMove = (e: React.PointerEvent, index: number) => {
+      e.preventDefault(); // Stop native scrolling/gestures
       const canvas = canvasRefs.current[index];
       if (!canvas) return;
+
+      // Handle Graffiti Drawing
+      if (isDrawing && editTab === 'draw' && currentStrokeRef.current) {
+          // Use getCoalescedEvents for higher precision/smoothness if available
+          const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = currentStrokeRef.current.color;
+          ctx.lineWidth = currentStrokeRef.current.width;
+          
+          events.forEach(ev => {
+              const coords = getCanvasCoords(ev, canvas);
+              currentStrokeRef.current!.points.push(coords);
+              
+              const points = currentStrokeRef.current!.points;
+              const len = points.length;
+              if (len >= 2) {
+                   ctx.beginPath();
+                   const p1 = points[len - 2];
+                   const p2 = points[len - 1];
+                   ctx.moveTo(p1.x, p1.y);
+                   ctx.lineTo(p2.x, p2.y);
+                   ctx.stroke();
+              }
+          });
+          return;
+      }
+      
       const coords = getCanvasCoords(e, canvas);
 
-      if (isDrawing && editTab === 'draw' && currentStrokeRef.current) {
-          currentStrokeRef.current.points.push(coords);
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-              ctx.lineCap = 'round';
-              ctx.lineJoin = 'round';
-              ctx.strokeStyle = currentStrokeRef.current.color;
-              ctx.lineWidth = currentStrokeRef.current.width;
-              ctx.beginPath();
-              const len = currentStrokeRef.current.points.length;
-              if (len >= 2) {
-                  const p1 = currentStrokeRef.current.points[len - 2];
-                  const p2 = currentStrokeRef.current.points[len - 1];
-                  ctx.moveTo(p1.x, p1.y);
-                  ctx.lineTo(p2.x, p2.y);
-                  ctx.stroke();
-              }
-          }
+      if (isPanningPhoto && editTab === 'adjust') {
+          setImgTransforms(prev => {
+              const next = [...prev];
+              const current = next[index] || { x: 0, y: 0, scale: 1 };
+              next[index] = { 
+                  ...current,
+                  x: coords.x - dragOffset.x,
+                  y: coords.y - dragOffset.y
+              };
+              return next;
+          });
           return;
       }
 
@@ -428,7 +590,18 @@ export default function App() {
       setIsDrawing(false);
       setIsDraggingSticker(false);
       setIsResizingSticker(false);
+      setIsPanningPhoto(false);
       setInitialResizeState(null);
+  };
+  
+  // Update transform scale from slider
+  const handleScaleChange = (val: number) => {
+      setImgTransforms(prev => {
+          const next = [...prev];
+          const current = next[lastActiveIndex] || { x: 0, y: 0, scale: 1 };
+          next[lastActiveIndex] = { ...current, scale: val };
+          return next;
+      });
   };
 
   // --- STICKER ACTIONS (New) ---
@@ -567,6 +740,7 @@ export default function App() {
   };
 
   const toggleMute = () => { setIsMuted(!isMuted); };
+  const toggleLanguage = () => { setLanguage(prev => prev === 'en' ? 'zh' : 'en'); play('pop'); };
 
   // --- RENDER HELPERS ---
   const VolumeButton = () => (
@@ -575,30 +749,53 @@ export default function App() {
       </Button>
   );
 
+  const LanguageButton = () => (
+      <Button variant="icon" onClick={toggleLanguage} className="!bg-white/90 !shadow-sm w-10 h-10 !p-0 font-bold text-xs" title="Switch Language">
+          {language === 'en' ? '中' : 'En'}
+      </Button>
+  );
+
   const TopHeader = ({ leftAction, rightAction }: { leftAction?: React.ReactNode, rightAction?: React.ReactNode }) => (
     <div className="w-full flex justify-between items-center p-4 z-50">
         <div>{leftAction}</div>
-        <div>{rightAction}</div>
+        <div className="flex gap-2">
+            <LanguageButton />
+            {rightAction || <VolumeButton />}
+        </div>
     </div>
   );
+
+  // Helper to translate Template properties
+  const getTemplateName = (id: string) => {
+      const key = `tpl_${id}` as keyof typeof t;
+      return t[key] || id;
+  };
+  const getTemplateDesc = (id: string) => {
+      const key = `tpl_${id}_desc` as keyof typeof t;
+      return t[key] || "";
+  };
+  const getCategoryName = (cat: string) => {
+      const key = `cat_${cat.toLowerCase()}` as keyof typeof t;
+      return t[key] || cat;
+  }
 
   // --- VIEWS ---
   // (Template Select, Upload, Camera views omitted for brevity - unchanged)
 
   const renderTemplateSelection = () => (
       <div className="flex flex-col min-h-screen animate-fade-in pb-10">
-          <TopHeader rightAction={<VolumeButton />} />
+          <TopHeader />
           <div className="flex-grow flex flex-col items-center justify-center p-6 -mt-10">
             <div className="max-w-md w-full bg-white/80 backdrop-blur-md p-8 rounded-[3rem] border-4 border-white shadow-xl animate-[float_6s_ease-in-out_infinite]">
-                <h1 className="text-4xl font-extrabold text-pink-500 mb-2 tracking-wide flex items-center justify-center drop-shadow-sm"><SparklesIcon /> Puri-Cute</h1>
-                <p className="text-slate-500 mb-8 font-medium text-center">✨ Photo Booth & Sticker Maker ✨</p>
+                <h1 className="text-4xl font-extrabold text-pink-500 mb-2 tracking-wide flex items-center justify-center drop-shadow-sm"><SparklesIcon /> {t.appTitle}</h1>
+                <p className="text-slate-500 mb-8 font-medium text-center">{t.appSubtitle}</p>
                 <div className="grid grid-cols-2 gap-4">
                     {LAYOUT_TEMPLATES.map(template => (
                         <button key={template.id} onClick={() => { play('pop'); setSelectedTemplate(template); setAppState(AppState.UPLOAD); }} className="bg-white p-4 rounded-[2rem] border-2 border-slate-100 shadow-sm hover:border-pink-300 hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col items-center group active:scale-95 duration-200">
                             <div className="text-5xl mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">{template.icon}</div>
-                            <div className="font-bold text-slate-700">{template.name}</div>
-                            <div className="text-xs text-slate-400 mb-2">{template.description}</div>
-                            <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold border border-blue-100">{template.slots} Shot{template.slots > 1 ? 's' : ''}</span>
+                            <div className="font-bold text-slate-700">{getTemplateName(template.id)}</div>
+                            <div className="text-xs text-slate-400 mb-2">{getTemplateDesc(template.id)}</div>
+                            <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-bold border border-blue-100">{template.slots} {template.slots > 1 ? t.shots_plural : t.shots}</span>
                         </button>
                     ))}
                 </div>
@@ -609,19 +806,24 @@ export default function App() {
 
   const renderUploadStep = () => (
     <div className="flex flex-col min-h-screen animate-fade-in">
-      <TopHeader leftAction={<Button variant="icon" onClick={() => { play('cancel'); setAppState(AppState.TEMPLATE_SELECT); }}><BackIcon /></Button>} rightAction={<VolumeButton />} />
+      <TopHeader leftAction={<Button variant="icon" onClick={() => { play('cancel'); setAppState(AppState.TEMPLATE_SELECT); }}><BackIcon /></Button>} />
       <div className="flex-grow flex flex-col items-center justify-center p-6 -mt-10 gap-6">
         <div className="bg-white/90 backdrop-blur-md p-8 rounded-[3rem] shadow-xl border-4 border-white max-w-sm w-full">
             <div className="text-center mb-6">
-                <div className="text-pink-400 mb-2 font-bold text-3xl flex justify-center items-center gap-2">{selectedTemplate.icon} {selectedTemplate.name}</div>
-                <p className="text-slate-500 text-sm font-medium">Choose how to create your purikura!</p>
+                <div className="text-pink-400 mb-2 font-bold text-3xl flex justify-center items-center gap-2">{selectedTemplate.icon} {getTemplateName(selectedTemplate.id)}</div>
+                <p className="text-slate-500 text-sm font-medium">{t.choose_mode}</p>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 <button onClick={() => { play('pop'); startCamera(); }} className="bg-pink-400 text-white rounded-2xl p-6 shadow-lg shadow-pink-200 hover:bg-pink-500 active:scale-95 transition-all flex flex-col items-center">
-                   <CameraIcon /> <span className="font-bold text-lg">Start Camera</span> <span className="text-xs opacity-80 mt-1">Countdown Burst Mode</span>
+                   <CameraIcon /> <span className="font-bold text-lg">{t.start_camera}</span> <span className="text-xs opacity-80 mt-1">{t.burst_mode}</span>
                 </button>
                 <div onClick={() => fileInputRef.current?.click()} className="border-dashed border-[3px] border-blue-200 rounded-2xl p-6 cursor-pointer hover:bg-blue-50 transition-all active:scale-95 bg-blue-50/30 flex flex-col items-center">
-                  <div className="text-blue-300 mb-2"><UploadIcon /></div> <span className="text-blue-400 font-bold text-lg">Upload Photos</span> <span className="text-blue-300 text-xs mt-1">Pick up to {selectedTemplate.slots} images</span>
+                  <div className="text-blue-300 mb-2"><UploadIcon /></div> <span className="text-blue-400 font-bold text-lg">{t.upload_photos}</span> <span className="text-blue-300 text-xs mt-1">{t.pick_images.replace('{n}', selectedTemplate.slots.toString())}</span>
+                </div>
+                <div className="text-center">
+                    <a href="https://www.photoroom.com/tools/background-remover" target="_blank" rel="noopener noreferrer" className="text-xs text-pink-400 hover:text-pink-600 underline font-medium opacity-80 hover:opacity-100 transition-all">
+                        {t.remove_bg_tip}
+                    </a>
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileUpload} />
             </div>
@@ -634,13 +836,13 @@ export default function App() {
       <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
           <video ref={videoRef} className="absolute w-full h-full object-cover opacity-80" autoPlay playsInline muted />
           <div className="relative z-10 flex flex-col items-center justify-between h-full w-full py-10">
-              <div className="bg-black/50 px-6 py-2 rounded-full text-white font-bold backdrop-blur-sm">{selectedTemplate.slots} Shots Burst Mode</div>
+              <div className="bg-black/50 px-6 py-2 rounded-full text-white font-bold backdrop-blur-sm">{selectedTemplate.slots} {t.shots_plural} {t.burst_mode}</div>
               {countdown !== null ? (
                   <div className="text-9xl font-black text-white drop-shadow-[0_0_10px_rgba(255,105,180,0.8)] animate-pulse scale-150 transition-all">{countdown === 0 ? "📸" : countdown}</div>
               ) : (
                   <button onClick={handleBurstCapture} className="w-24 h-24 bg-white rounded-full border-8 border-pink-200 shadow-[0_0_30px_rgba(255,255,255,0.5)] active:scale-90 transition-transform flex items-center justify-center"><div className="w-20 h-20 bg-pink-500 rounded-full border-4 border-white"></div></button>
               )}
-              <Button variant="outline" onClick={() => { stopCamera(); setAppState(AppState.UPLOAD); }} className="!bg-white/20 !text-white !border-white/50 backdrop-blur-md">Cancel</Button>
+              <Button variant="outline" onClick={() => { stopCamera(); setAppState(AppState.UPLOAD); }} className="!bg-white/20 !text-white !border-white/50 backdrop-blur-md">{t.cancel}</Button>
           </div>
       </div>
   );
@@ -652,13 +854,21 @@ export default function App() {
           <div className={`w-full mx-auto h-full ${uploadedImages.length === 1 ? 'flex items-center justify-center py-4' : 'grid grid-cols-2 gap-4 auto-rows-min content-start'}`}>
               {uploadedImages.map((_, index) => (
                   <div key={index} className={`relative group ${uploadedImages.length === 1 ? 'w-auto h-auto max-w-[85%] max-h-[85%]' : 'w-full aspect-[5/7]'}`}>
-                      <div className="relative w-full h-full touch-none" onPointerDown={(e) => handlePointerDown(e, index)} onPointerMove={(e) => handlePointerMove(e, index)} onPointerUp={() => handlePointerUp(index)} onPointerLeave={() => handlePointerUp(index)}>
+                      <div 
+                        className="relative w-full h-full touch-none" 
+                        onPointerDown={(e) => handlePointerDown(e, index)} 
+                        onPointerMove={(e) => handlePointerMove(e, index)} 
+                        onPointerUp={() => handlePointerUp(index)} 
+                        onPointerLeave={() => handlePointerUp(index)}
+                        style={{ touchAction: 'none' }} 
+                      >
                           <canvas 
                             ref={(el) => (canvasRefs.current[index] = el)} 
-                            className={`shadow-lg rounded-2xl border-[4px] object-contain bg-white w-full h-full transition-all duration-200 ${lastActiveIndex === index ? 'border-pink-400 ring-4 ring-pink-100 shadow-pink-200/50' : 'border-white'}`} 
+                            className={`shadow-lg rounded-2xl border-[4px] bg-white w-full h-full transition-all duration-200 ${lastActiveIndex === index ? 'border-pink-400 ring-4 ring-pink-100 shadow-pink-200/50' : 'border-white'}`} 
+                            style={{ touchAction: 'none' }}
                           />
                           {uploadedImages.length > 1 && (<div className="absolute top-2 left-2 bg-pink-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md border-2 border-white pointer-events-none">{index + 1}</div>)}
-                          <button onClick={(e) => { e.stopPropagation(); clearDecorations(index); }} className="absolute top-2 right-2 bg-slate-800/50 text-white text-[10px] px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">Reset</button>
+                          <button onClick={(e) => { e.stopPropagation(); clearDecorations(index); }} className="absolute top-2 right-2 bg-slate-800/50 text-white text-[10px] px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">{t.reset}</button>
                       </div>
                   </div>
               ))}
@@ -668,7 +878,7 @@ export default function App() {
       {/* Editor Controls */}
       <div className="flex-none bg-white rounded-t-[2rem] shadow-[0_-5px_30px_rgba(0,0,0,0.1)] z-20">
         <div className="flex justify-around border-b border-slate-100">
-            {[{ id: 'adjust', label: 'Adjust', icon: '✨' }, { id: 'draw', label: 'Graffiti', icon: '🖊️' }, { id: 'sticker', label: 'Stickers', icon: '🧸' }].map((tab) => (
+            {[{ id: 'adjust', label: t.tab_adjust, icon: '✨' }, { id: 'draw', label: t.tab_draw, icon: '🖊️' }, { id: 'sticker', label: t.tab_sticker, icon: '🧸' }].map((tab) => (
                 <button key={tab.id} onClick={() => { play('pop'); setEditTab(tab.id as any); setSelectedStickerId(null); }} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${editTab === tab.id ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-50/50' : 'text-slate-400'}`}><span>{tab.icon}</span> {tab.label}</button>
             ))}
         </div>
@@ -676,21 +886,31 @@ export default function App() {
         <div className="p-5 h-56 overflow-y-auto custom-scrollbar">
             {editTab === 'adjust' && (
                 <div className="space-y-4">
+                     {/* Photo Editor Hint */}
+                     <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-200 text-center text-xs text-yellow-700 font-bold mb-2">
+                        {t.edit_photo_hint} {imgTransforms[lastActiveIndex]?.scale.toFixed(1)}x
+                     </div>
                      <div className="flex gap-4">
                         <div className="flex-1 bg-pink-50 p-3 rounded-2xl border border-pink-100 flex flex-col items-center justify-center">
-                            <span className="text-xs font-bold text-slate-500 mb-1">Beauty Filter</span>
+                            <span className="text-xs font-bold text-slate-500 mb-1">{t.beauty_filter}</span>
                             <button onClick={() => setLightingEnabled(!lightingEnabled)} className={`w-10 h-6 rounded-full border-2 relative transition-colors ${lightingEnabled ? 'bg-pink-400 border-pink-400' : 'bg-slate-200 border-slate-200'}`}><div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${lightingEnabled ? 'translate-x-4' : ''}`} /></button>
                         </div>
+                        
+                        {/* Scale Slider */}
+                        <div className="flex-1 bg-purple-50 p-3 rounded-2xl border border-purple-100 flex flex-col items-center justify-center">
+                            <span className="text-xs font-bold text-slate-500 mb-1">Zoom</span>
+                            <input type="range" min="0.5" max="3" step="0.1" 
+                                value={imgTransforms[lastActiveIndex]?.scale || 1} 
+                                onChange={(e) => handleScaleChange(parseFloat(e.target.value))} 
+                                className="w-full h-2 bg-purple-200 rounded-lg accent-purple-400" />
+                        </div>
+                        
                         <div className="flex-1 bg-blue-50 p-3 rounded-2xl border border-blue-100 flex flex-col items-center justify-center">
-                            <span className="text-xs font-bold text-slate-500 mb-1">Retro Grain</span>
+                            <span className="text-xs font-bold text-slate-500 mb-1">{t.retro_grain}</span>
                             <input type="range" min="0" max="0.5" step="0.05" value={noiseLevel} onChange={(e) => setNoiseLevel(parseFloat(e.target.value))} className="w-full h-2 bg-blue-200 rounded-lg accent-blue-400" />
                         </div>
-                        {/* New Date Stamp Toggle */}
-                        <div className="flex-1 bg-orange-50 p-3 rounded-2xl border border-orange-100 flex flex-col items-center justify-center">
-                            <span className="text-xs font-bold text-slate-500 mb-1">Date Stamp</span>
-                             <button onClick={() => setShowDate(!showDate)} className={`w-10 h-6 rounded-full border-2 relative transition-colors ${showDate ? 'bg-orange-400 border-orange-400' : 'bg-slate-200 border-slate-200'}`}><div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDate ? 'translate-x-4' : ''}`} /></button>
-                        </div>
                      </div>
+                     
                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                          {BACKGROUND_PRESETS.map(bg => (
                              <button key={bg.id} onClick={() => setSelectedBg(bg)} className={`w-10 h-10 rounded-full border-2 flex-shrink-0 ${selectedBg.id === bg.id ? 'border-pink-500 scale-110' : 'border-white shadow-sm'}`} style={{background: bg.value}} />
@@ -702,8 +922,8 @@ export default function App() {
             {editTab === 'draw' && (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between mb-2 px-2">
-                         <p className="text-xs text-slate-400">Draw directly on the photos!</p>
-                         <button onClick={handleUndoStroke} className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full active:scale-95 transition-all hover:bg-slate-200 hover:text-pink-500"><UndoIcon /> Undo</button>
+                         <p className="text-xs text-slate-400">{t.draw_hint}</p>
+                         <button onClick={handleUndoStroke} className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full active:scale-95 transition-all hover:bg-slate-200 hover:text-pink-500"><UndoIcon /> {t.undo}</button>
                     </div>
                     <div className="flex justify-center gap-3 flex-wrap">
                         {PEN_COLORS.map(c => (
@@ -720,22 +940,22 @@ export default function App() {
                       <div className="flex items-center justify-center gap-4 mb-4 bg-slate-100 p-2 rounded-xl animate-fade-in-up">
                           <button onClick={flipSticker} className="flex flex-col items-center gap-1 text-slate-600 active:scale-95 transition-transform">
                               <span className="text-xl bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm">↔️</span>
-                              <span className="text-[10px] font-bold">Flip</span>
+                              <span className="text-[10px] font-bold">{t.flip}</span>
                           </button>
                           <button onClick={bringStickerFront} className="flex flex-col items-center gap-1 text-slate-600 active:scale-95 transition-transform">
                               <span className="text-xl bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm">🔼</span>
-                              <span className="text-[10px] font-bold">Front</span>
+                              <span className="text-[10px] font-bold">{t.front}</span>
                           </button>
                            <button onClick={deleteSelectedSticker} className="flex flex-col items-center gap-1 text-red-500 active:scale-95 transition-transform">
                               <span className="text-xl bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm">🗑️</span>
-                              <span className="text-[10px] font-bold">Delete</span>
+                              <span className="text-[10px] font-bold">{t.delete}</span>
                           </button>
                       </div>
                   ) : (
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
                         {(['Y2K', 'RIBBON', 'DOODLE', 'RETRO', 'CYBER'] as const).map(cat => (
                         <button key={cat} onClick={() => setStickerCategory(cat)} className={`text-xs font-bold px-3 py-1 rounded-full transition-all border whitespace-nowrap ${stickerCategory === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200 hover:border-pink-300'}`}>
-                            {cat === 'Y2K' && '✨ Y2K'} {cat === 'RIBBON' && '🎀 Ribbon'} {cat === 'DOODLE' && '🖍️ Doodle'} {cat === 'RETRO' && '🎄 Retro Xmas'} {cat === 'CYBER' && '🤖 Cyber Pets'}
+                            {getCategoryName(cat)}
                         </button>
                         ))}
                     </div>
@@ -754,7 +974,7 @@ export default function App() {
 
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3">
              <Button variant="outline" onClick={() => { play('cancel'); setAppState(AppState.UPLOAD); }} className="!w-auto !rounded-2xl"><BackIcon /></Button>
-             <Button fullWidth onClick={handleGenerateLayout} className="rounded-2xl shadow-pink-300 shadow-lg">Finish & Print ✨</Button>
+             <Button fullWidth onClick={handleGenerateLayout} className="rounded-2xl shadow-pink-300 shadow-lg">{t.finish}</Button>
         </div>
       </div>
     </div>
@@ -763,10 +983,11 @@ export default function App() {
   const renderLayoutStep = () => (
     <div className="flex flex-col h-full w-full max-w-lg mx-auto bg-slate-900 min-h-screen relative animate-fade-in">
         <div className="p-4 flex justify-between items-center text-white z-10 bg-slate-900/50 backdrop-blur-md sticky top-0">
-            <h2 className="text-lg font-bold flex items-center"><span className="text-2xl mr-2">🖨️</span> Print Preview</h2>
+            <h2 className="text-lg font-bold flex items-center"><span className="text-2xl mr-2">🖨️</span> {t.preview_title}</h2>
             <div className="flex gap-2 items-center">
+                <LanguageButton />
                 <Button variant="icon" onClick={toggleMute} className="!bg-white/10 !text-white !border-transparent hover:!bg-white/20"><VolumeIcon muted={isMuted} /></Button>
-                <button onClick={() => { play('cancel'); setAppState(AppState.EDIT); }} className="text-sm bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-colors active:scale-90 font-bold">Back</button>
+                <button onClick={() => { play('cancel'); setAppState(AppState.EDIT); }} className="text-sm bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full transition-colors active:scale-90 font-bold">{t.back}</button>
             </div>
         </div>
         <div className="flex-grow flex items-center justify-center p-6 overflow-auto bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]">
@@ -774,10 +995,10 @@ export default function App() {
         </div>
         <div className="p-6 bg-slate-800 border-t border-slate-700 z-10 safe-area-pb">
              <div className="bg-slate-700/50 p-4 rounded-3xl mb-4 border border-slate-600 text-center">
-                <p className="text-pink-300 text-sm font-bold mb-1">🎉 Ready to Print!</p>
-                <p className="text-slate-400 text-xs">Save image to your gallery.</p>
+                <p className="text-pink-300 text-sm font-bold mb-1">{t.ready_msg}</p>
+                <p className="text-slate-400 text-xs">{t.save_hint}</p>
              </div>
-             <Button fullWidth onClick={handleDownloadSheet} className="text-lg shadow-pink-500/50 shadow-lg rounded-2xl">Save Image 📥</Button>
+             <Button fullWidth onClick={handleDownloadSheet} className="text-lg shadow-pink-500/50 shadow-lg rounded-2xl">{t.save_btn}</Button>
         </div>
     </div>
   );

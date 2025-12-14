@@ -64,3 +64,10 @@ export interface DecorationState {
   strokes: Stroke[];
   stickers: StickerItem[];
 }
+
+// New: Image Transform State
+export interface ImageTransform {
+    x: number;
+    y: number;
+    scale: number;
+}

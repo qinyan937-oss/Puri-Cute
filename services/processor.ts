@@ -1,4 +1,4 @@
-import { BackgroundPreset, FramePreset, LayoutTemplate, DecorationState } from "../types";
+import { BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, ImageTransform } from "../types";
 
 // Helper to load image from URL/Blob
 export const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -13,6 +13,7 @@ export const loadImage = (src: string): Promise<HTMLImageElement> => {
 
 /**
  * CORE UTILITY: Draw Image Aspect Fill (Cover)
+ * Now modified to accept manual transform overrides if provided via renderComposite
  */
 const drawImageAspectFill = (
   ctx: CanvasRenderingContext2D,
@@ -691,12 +692,13 @@ interface RenderParams {
   showDate?: boolean;
   decorations?: DecorationState;
   selectedStickerId?: string | null;
+  imageTransform?: ImageTransform;
 }
 
 export const STICKER_BASE_SIZE = 150; // New base size for vector stickers
 
 export const renderComposite = (params: RenderParams) => {
-  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId } = params;
+  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId, imageTransform } = params;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -744,7 +746,31 @@ export const renderComposite = (params: RenderParams) => {
   if (lightingEnabled) {
      ctx.filter = "brightness(1.15) contrast(0.95) saturate(1.05)";
   }
-  drawImageAspectFill(ctx, personImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT, false, 0.2);
+  
+  // Custom Manual Transform Logic
+  // Calculate Base Aspect Fill
+  const scaleCover = Math.max(TARGET_WIDTH / personImage.width, TARGET_HEIGHT / personImage.height);
+  
+  // Apply User Transform
+  // If transform exists, use it, else default 1.0 scale
+  const userScale = imageTransform?.scale ?? 1.0;
+  const userX = imageTransform?.x ?? 0;
+  const userY = imageTransform?.y ?? 0;
+  
+  const finalScale = scaleCover * userScale;
+  const drawW = personImage.width * finalScale;
+  const drawH = personImage.height * finalScale;
+  
+  // Center by default + user offset
+  const centerX = (TARGET_WIDTH - drawW) / 2;
+  const centerY = (TARGET_HEIGHT - drawH) / 2;
+  
+  // Note: For aspect fill default, we sometimes want specific alignment (like top for ID photos)
+  // But manual control supersedes this. If user pans, they set the pos.
+  // We'll stick to center-center default for consistent panning behavior.
+  
+  ctx.drawImage(personImage, centerX + userX, centerY + userY, drawW, drawH);
+  ctx.restore();
   
   // 3. Decorations
   if (decorations) {
@@ -866,103 +892,292 @@ export const generateLayoutSheet = (
   templateId: string,
   locationText: string = "TOKYO"
 ): string => {
-  const sheetCanvas = document.createElement('canvas');
-  const ctx = sheetCanvas.getContext('2d');
+  // 1. Generate the High-Resolution Layout first
+  const layoutCanvas = document.createElement('canvas');
+  const ctx = layoutCanvas.getContext('2d');
   if (!ctx) return '';
+
+  // Helper to fallback to first image if slot is empty (Repeat Image)
+  const getSource = (i: number) => sourceCanvases[i] || sourceCanvases[0];
 
   const PADDING = 40;
   
   if (templateId === 'cinema') {
-    // Black Film Strip Style (Updated to match reference)
-    const IMG_W = 400;
-    const IMG_H = 560; // 5:7 ratio
-    const GAP_Y = 20; // Gap between photos
+    // UPDATED: Life4Cuts Style (Landscape Slots, Double Strip)
     
-    // Film strip styling
-    const HOLE_W = 12;
-    const HOLE_H = 8;
-    const HOLE_GAP = 15;
-    const SIDE_PADDING = 30; // Space for holes
+    // Layout constants
+    const PHOTO_W = 480; 
+    const PHOTO_H = 320; // 3:2 Aspect Ratio (Classic Film)
+    const PHOTO_GAP = 20;
     
-    const TOP_MARGIN = 50;
-    const BOTTOM_MARGIN = 100;
+    // Film Strip Config
+    const STRIP_SIDE_PADDING = 30; // Padding from edge of strip to photo
+    const STRIP_WIDTH = PHOTO_W + (STRIP_SIDE_PADDING * 2);
     
-    const STRIP_W = IMG_W + (SIDE_PADDING * 2);
-    const STRIP_H = TOP_MARGIN + (IMG_H * 4) + (GAP_Y * 3) + BOTTOM_MARGIN;
+    const STRIP_TOP_PADDING = 60;
+    const STRIP_BOTTOM_PADDING = 120;
     
-    const GAP_BETWEEN_STRIPS = 50;
-    const OUTER_PADDING = 40; // White border around the black print
+    const STRIP_HEIGHT = STRIP_TOP_PADDING + (PHOTO_H * 4) + (PHOTO_GAP * 3) + STRIP_BOTTOM_PADDING;
     
-    sheetCanvas.width = (STRIP_W * 2) + GAP_BETWEEN_STRIPS + (OUTER_PADDING * 2);
-    sheetCanvas.height = STRIP_H + (OUTER_PADDING * 2);
+    const STRIP_GAP = 60;
+    const SHEET_MARGIN = 50;
     
-    // 1. White Paper Background (The border)
+    const CANVAS_W = (SHEET_MARGIN * 2) + (STRIP_WIDTH * 2) + STRIP_GAP;
+    const CANVAS_H = (SHEET_MARGIN * 2) + STRIP_HEIGHT;
+    
+    layoutCanvas.width = CANVAS_W;
+    layoutCanvas.height = CANVAS_H;
+    
+    // 1. Sheet Base (White)
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     
-    // 2. Black Film Background
-    ctx.fillStyle = '#111111';
-    const innerX = OUTER_PADDING;
-    const innerY = OUTER_PADDING;
-    const innerW = sheetCanvas.width - (OUTER_PADDING * 2);
-    const innerH = sheetCanvas.height - (OUTER_PADDING * 2);
-    ctx.fillRect(innerX, innerY, innerW, innerH);
+    // 2. Black Background Container
+    const bgX = SHEET_MARGIN;
+    const bgY = SHEET_MARGIN;
+    const bgW = CANVAS_W - (SHEET_MARGIN * 2);
+    const bgH = CANVAS_H - (SHEET_MARGIN * 2);
     
-    const drawStrip = (offsetX: number) => {
-        // Draw Sprocket Holes
-        ctx.fillStyle = '#555555'; // Dark grey holes
-        const holeStartX = offsetX + (SIDE_PADDING - HOLE_W) / 2;
-        const holeEndX = offsetX + STRIP_W - (SIDE_PADDING + HOLE_W) / 2;
-        
-        for (let y = 0; y < STRIP_H; y += (HOLE_H + HOLE_GAP)) {
-             // Left Holes
-             ctx.fillRect(innerX + holeStartX, innerY + y, HOLE_W, HOLE_H);
-             // Right Holes
-             ctx.fillRect(innerX + holeEndX, innerY + y, HOLE_W, HOLE_H);
-        }
-
-        let y = innerY + TOP_MARGIN;
-        
-        sourceCanvases.slice(0, 4).forEach(canv => {
-            // Draw Photo
-            ctx.drawImage(canv, innerX + offsetX + SIDE_PADDING, y, IMG_W, IMG_H);
-            y += IMG_H + GAP_Y;
-        });
-        
-        // Footer Text
-        y += 50;
+    ctx.fillStyle = '#0f0f0f'; // Almost black
+    ctx.fillRect(bgX, bgY, bgW, bgH);
+    
+    const drawSingleStrip = (startX: number) => {
+        // Holes
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 28px "M PLUS Rounded 1c", sans-serif'; 
-        ctx.textAlign = 'center';
-        ctx.fillText('LIFE4CUTS', innerX + offsetX + STRIP_W/2, y);
+        const holeW = 12;
+        const holeH = 18;
+        const holeGap = 30;
         
-        ctx.font = '16px "M PLUS Rounded 1c", sans-serif';
+        // Left Holes
+        const leftHoleX = startX + 10;
+        // Right Holes
+        const rightHoleX = startX + STRIP_WIDTH - 10 - holeW;
+        
+        for(let y = bgY; y < bgY + bgH; y+= (holeH + holeGap)) {
+             ctx.fillRect(leftHoleX, y, holeW, holeH);
+             ctx.fillRect(rightHoleX, y, holeW, holeH);
+        }
+        
+        // Photos
+        let y = bgY + STRIP_TOP_PADDING;
+        const photoX = startX + STRIP_SIDE_PADDING;
+        
+        for (let i = 0; i < 4; i++) {
+            const src = getSource(i);
+            // Draw Photo Frame (optional specific bg color if transparent)
+            ctx.fillStyle = '#eee';
+            ctx.fillRect(photoX, y, PHOTO_W, PHOTO_H);
+            
+            // Draw Image (Cover/Crop)
+            drawImageAspectFill(ctx, src, photoX, y, PHOTO_W, PHOTO_H);
+            
+            y += PHOTO_H + PHOTO_GAP;
+        }
+        
+        // Text
+        const textCenter = startX + STRIP_WIDTH / 2;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 28px "M PLUS Rounded 1c", sans-serif'; 
+        ctx.fillText('LIFE4CUTS', textCenter, y + 40);
+        
+        ctx.font = '600 14px "M PLUS Rounded 1c", sans-serif';
         ctx.fillStyle = '#888888';
-        const date = new Date().toLocaleDateString().replace(/\//g, '.');
-        ctx.fillText(date, innerX + offsetX + STRIP_W/2, y + 25);
+        const d = new Date();
+        const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+        ctx.fillText(dateStr, textCenter, y + 65);
     };
-
-    // Calculate offsets for two strips centered in the black area
-    // Strip 1 starts at 0 (relative to inner box)
-    drawStrip(0);
-    // Strip 2 starts after Strip 1 width + Gap
-    drawStrip(STRIP_W + GAP_BETWEEN_STRIPS);
     
+    // Strip 1
+    drawSingleStrip(bgX);
+    // Strip 2
+    drawSingleStrip(bgX + STRIP_WIDTH + STRIP_GAP);
+    
+  } else if (templateId === 'standard') {
+      // UPDATED: Authentic Japanese ID Photo Layout (Graph Paper style)
+      const SHEET_W = 1500; 
+      const SHEET_H = 1000;
+      layoutCanvas.width = SHEET_W;
+      layoutCanvas.height = SHEET_H;
+      
+      // 1. Background (White)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, SHEET_W, SHEET_H);
+      
+      // 2. Graph Paper Grid
+      const GRID_BASE = 25; // Minor grid
+      const GRID_MAJOR = 100; // Major grid
+      
+      ctx.save();
+      // Draw Minor Lines
+      ctx.beginPath();
+      ctx.strokeStyle = '#f1f5f9'; // Very light blue/grey (slate-100)
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= SHEET_W; x += GRID_BASE) { ctx.moveTo(x, 0); ctx.lineTo(x, SHEET_H); }
+      for (let y = 0; y <= SHEET_H; y += GRID_BASE) { ctx.moveTo(0, y); ctx.lineTo(SHEET_W, y); }
+      ctx.stroke();
+
+      // Draw Major Lines
+      ctx.beginPath();
+      ctx.strokeStyle = '#cbd5e1'; // Mid blue/grey (slate-300)
+      ctx.lineWidth = 2;
+      for (let x = 0; x <= SHEET_W; x += GRID_MAJOR) { ctx.moveTo(x, 0); ctx.lineTo(x, SHEET_H); }
+      for (let y = 0; y <= SHEET_H; y += GRID_MAJOR) { ctx.moveTo(0, y); ctx.lineTo(SHEET_W, y); }
+      ctx.stroke();
+      ctx.restore();
+      
+      const src = getSource(0);
+      
+      // 3. Photos Placement
+      if (src) {
+          // Top Row: 2 Large
+          const topW = 400; 
+          const topH = 500;
+          const topY = 100;
+          const topGap = 50;
+          const topXStart = 100;
+          
+          for(let i=0; i<2; i++) {
+              const x = topXStart + (topW + topGap) * i;
+              ctx.fillStyle = '#fff'; // White border
+              ctx.fillRect(x-5, topY-5, topW+10, topH+10);
+              
+              // FIX: Use aspect fill with top weighting (0.15) to preserve head area and prevent stretching
+              drawImageAspectFill(ctx, src, x, topY, topW, topH, false, 0.15);
+              
+              // Crop marks
+              ctx.fillStyle = '#334155';
+              ctx.beginPath();
+              // Top
+              ctx.moveTo(x, topY-5); ctx.lineTo(x, topY-15); 
+              ctx.moveTo(x+topW, topY-5); ctx.lineTo(x+topW, topY-15);
+              // Bottom
+              ctx.moveTo(x, topY+topH+5); ctx.lineTo(x, topY+topH+15);
+              ctx.moveTo(x+topW, topY+topH+5); ctx.lineTo(x+topW, topY+topH+15);
+              ctx.stroke();
+          }
+
+          // Bottom Row: 4 Small
+          const botW = 200;
+          const botH = 250;
+          const botY = 650;
+          const botGap = 25;
+          const botXStart = 100;
+
+           for(let i=0; i<4; i++) {
+              const x = botXStart + (botW + botGap) * i;
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(x-4, botY-4, botW+8, botH+8);
+              
+              // FIX: Use aspect fill with top weighting (0.15)
+              drawImageAspectFill(ctx, src, x, botY, botW, botH, false, 0.15);
+          }
+          
+          // SIDEBAR (Right)
+          const sideX = 1100;
+          const sideY = 120;
+          const sideW = 300;
+          const sideH = 800;
+          const sidePadding = 20;
+
+          // Thick Black Border
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(sideX, sideY, sideW, sideH);
+          
+          const centerX = sideX + sideW/2;
+          
+          // Layout Logic:
+          // Left Side (Rotated Text): 30% width
+          // Right Side (Icons/Info/Photo): 70% width
+          
+          ctx.save();
+          
+          // 1. Rotated Title Block (Left Side)
+          // Move origin to vertical center of sidebar, left-ish side
+          const textOriginX = sideX + 60;
+          const textOriginY = sideY + (sideH / 2) - 100; // Shift up slightly
+          
+          ctx.translate(textOriginX, textOriginY);
+          ctx.rotate(-Math.PI / 2); // Rotate -90 deg (Bottom-to-Top reading)
+          
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // Main Title
+          ctx.font = 'bold 32px serif';
+          ctx.fillStyle = '#1e3a8a'; // Dark Blue
+          ctx.fillText('証明写真 (ID PHOTO)', 0, 0);
+          
+          // Separator Line
+          ctx.beginPath();
+          ctx.moveTo(-150, 20);
+          ctx.lineTo(150, 20);
+          ctx.strokeStyle = '#1e3a8a';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          
+          // Subtitle
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText('★ PERFECT QUALITY ★', 0, 35);
+          
+          ctx.restore();
+          
+          // 2. Info Block (Right Side - Top)
+          const infoBlockX = sideX + 100;
+          const infoBlockY = sideY + 150;
+          
+          // Camera Icon (Upright)
+          ctx.font = '48px serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('📷', infoBlockX + 60, infoBlockY); 
+          
+          // Text Info (Upright)
+          ctx.fillStyle = '#000';
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 14px "M PLUS Rounded 1c"';
+          
+          const date = new Date().toLocaleDateString();
+          // Vertical spacing
+          let curY = infoBlockY + 60;
+          
+          ctx.fillText(`DATE: ${date}`, infoBlockX, curY);
+          curY += 25;
+          ctx.fillText(`LOC: ${locationText || 'Tokyo Station'}`, infoBlockX, curY);
+          curY += 25;
+          
+          ctx.font = 'italic 12px serif';
+          ctx.fillStyle = '#64748b';
+          ctx.fillText('NO. 001-A4', infoBlockX, curY);
+
+          // 3. Extra Photo (Right Side - Bottom)
+          const sidePhotoW = 200;
+          const sidePhotoH = 250;
+          const sidePhotoX = sideX + (sideW - sidePhotoW) / 2; // Center horizontally in box
+          const sidePhotoY = sideY + sideH - sidePhotoH - 40; // Bottom padding
+          
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(sidePhotoX-5, sidePhotoY-5, sidePhotoW+10, sidePhotoH+10);
+          
+          // FIX: Use aspect fill with top weighting (0.15)
+          drawImageAspectFill(ctx, src, sidePhotoX, sidePhotoY, sidePhotoW, sidePhotoH, false, 0.15);
+      }
+
   } else if (templateId === 'magazine') {
      // Collage 2x2
      const IMG_W = 600;
      const IMG_H = 840;
      const MARGIN = 60;
      
-     sheetCanvas.width = (IMG_W * 2) + (MARGIN * 3);
-     sheetCanvas.height = (IMG_H * 2) + (MARGIN * 3) + 200; // Header space
+     layoutCanvas.width = (IMG_W * 2) + (MARGIN * 3);
+     layoutCanvas.height = (IMG_H * 2) + (MARGIN * 3) + 200; // Header space
      
      // Kawaii BG
-     const grad = ctx.createLinearGradient(0,0, sheetCanvas.width, sheetCanvas.height);
+     const grad = ctx.createLinearGradient(0,0, layoutCanvas.width, layoutCanvas.height);
      grad.addColorStop(0, '#ff9a9e');
      grad.addColorStop(1, '#fecfef');
      ctx.fillStyle = grad;
-     ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+     ctx.fillRect(0, 0, layoutCanvas.width, layoutCanvas.height);
      
      // Title
      ctx.fillStyle = '#fff';
@@ -970,7 +1185,7 @@ export const generateLayoutSheet = (
      ctx.shadowBlur = 10;
      ctx.font = 'italic bold 100px sans-serif';
      ctx.textAlign = 'center';
-     ctx.fillText('Besties', sheetCanvas.width/2, 140);
+     ctx.fillText('Besties', layoutCanvas.width/2, 140);
      ctx.shadowBlur = 0;
      
      const coords = [
@@ -980,25 +1195,24 @@ export const generateLayoutSheet = (
          { x: MARGIN + IMG_W + MARGIN, y: 200 + IMG_H + MARGIN },
      ];
      
-     sourceCanvases.slice(0, 4).forEach((canv, i) => {
-         if(coords[i]) {
-             // White container
-             ctx.fillStyle = '#fff';
-             ctx.fillRect(coords[i].x - 10, coords[i].y - 10, IMG_W + 20, IMG_H + 20);
-             // Image
-             ctx.drawImage(canv, coords[i].x, coords[i].y, IMG_W, IMG_H);
-         }
+     coords.forEach((coord, i) => {
+         const canv = getSource(i);
+         // White container
+         ctx.fillStyle = '#fff';
+         ctx.fillRect(coord.x - 10, coord.y - 10, IMG_W + 20, IMG_H + 20);
+         // Image
+         ctx.drawImage(canv, coord.x, coord.y, IMG_W, IMG_H);
      });
 
   } else if (templateId === 'wanted') {
       // Poster
       const IMG_W = 900;
       const IMG_H = 1260;
-      sheetCanvas.width = 1200;
-      sheetCanvas.height = 1800;
+      layoutCanvas.width = 1200;
+      layoutCanvas.height = 1800;
       
       ctx.fillStyle = '#e8dcb5'; // Paper
-      ctx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+      ctx.fillRect(0, 0, layoutCanvas.width, layoutCanvas.height);
       
       // Grain
       ctx.globalAlpha = 0.1;
@@ -1008,33 +1222,66 @@ export const generateLayoutSheet = (
       ctx.font = 'bold 140px serif';
       ctx.fillStyle = '#3e2723';
       ctx.textAlign = 'center';
-      ctx.fillText('WANTED', sheetCanvas.width/2, 180);
+      ctx.fillText('WANTED', layoutCanvas.width/2, 180);
       
-      const x = (sheetCanvas.width - IMG_W)/2;
+      const x = (layoutCanvas.width - IMG_W)/2;
       const y = 250;
       
-      if (sourceCanvases[0]) {
-          ctx.drawImage(sourceCanvases[0], x, y, IMG_W, IMG_H);
+      const canv = getSource(0);
+      if (canv) {
+          ctx.drawImage(canv, x, y, IMG_W, IMG_H);
           ctx.lineWidth = 15;
           ctx.strokeStyle = '#3e2723';
           ctx.strokeRect(x, y, IMG_W, IMG_H);
       }
       
       ctx.font = 'bold 80px serif';
-      ctx.fillText('REWARD', sheetCanvas.width/2, y + IMG_H + 100);
+      ctx.fillText('REWARD', layoutCanvas.width/2, y + IMG_H + 100);
       ctx.font = 'bold 100px serif';
       ctx.fillStyle = '#d32f2f';
-      ctx.fillText('$1,000,000', sheetCanvas.width/2, y + IMG_H + 220);
+      ctx.fillText('$1,000,000', layoutCanvas.width/2, y + IMG_H + 220);
 
   } else {
       // Standard / Fallback (Just the image)
       if (sourceCanvases.length > 0) {
           const c = sourceCanvases[0];
-          sheetCanvas.width = c.width;
-          sheetCanvas.height = c.height;
+          layoutCanvas.width = c.width;
+          layoutCanvas.height = c.height;
           ctx.drawImage(c, 0, 0);
       }
   }
 
-  return sheetCanvas.toDataURL('image/png', 0.95);
+  // 2. Scale to Print Size (L-size: 89mm x 127mm @ 300DPI)
+  // 89mm = 3.5 inches -> ~1050 px
+  // 127mm = 5.0 inches -> ~1500 px
+  
+  const targetCanvas = document.createElement('canvas');
+  const tCtx = targetCanvas.getContext('2d');
+  if (!tCtx) return layoutCanvas.toDataURL('image/png');
+
+  const isLandscape = layoutCanvas.width > layoutCanvas.height;
+  
+  // Define target dimensions based on orientation
+  const targetW = isLandscape ? 1500 : 1050;
+  const targetH = isLandscape ? 1050 : 1500;
+  
+  targetCanvas.width = targetW;
+  targetCanvas.height = targetH;
+  
+  // Fill white background (Letterboxing)
+  tCtx.fillStyle = '#ffffff';
+  tCtx.fillRect(0, 0, targetW, targetH);
+  
+  // Calculate scale to fit (contain)
+  const scale = Math.min(targetW / layoutCanvas.width, targetH / layoutCanvas.height);
+  
+  const drawW = layoutCanvas.width * scale;
+  const drawH = layoutCanvas.height * scale;
+  
+  const offsetX = (targetW - drawW) / 2;
+  const offsetY = (targetH - drawH) / 2;
+  
+  tCtx.drawImage(layoutCanvas, offsetX, offsetY, drawW, drawH);
+  
+  return targetCanvas.toDataURL('image/png', 0.95);
 };
