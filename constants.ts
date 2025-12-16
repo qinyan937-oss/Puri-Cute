@@ -2,6 +2,12 @@
 import { BackgroundPreset, FramePreset, LayoutTemplate } from './types';
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
+  { 
+    id: 'bg-dots-pink', 
+    name: 'Polka Dots', 
+    value: 'radial-gradient(#fbcfe8 20%, transparent 20%), radial-gradient(#fbcfe8 20%, transparent 20%)', 
+    type: 'pattern' 
+  }, // Default CSS pattern handled in style injection or inline style
   { id: 'bg-white', name: 'Pure White', value: '#ffffff', type: 'color' },
   { id: 'bg-blue', name: 'Sky Blue', value: '#e0f2fe', type: 'color' }, // bg-sky-100
   { id: 'bg-pink', name: 'Sakura', value: '#fce7f3', type: 'color' }, // bg-pink-100
@@ -21,10 +27,10 @@ export const FRAME_PRESETS: FramePreset[] = [
 ];
 
 export const LAYOUT_TEMPLATES: LayoutTemplate[] = [
-  { id: 'cinema', name: 'Life4Cuts', description: '4-Frame Strip', icon: '🎞️', slots: 4 },
-  { id: 'magazine', name: 'Magazine', description: 'Kawaii Collage', icon: '💖', slots: 4 },
-  { id: 'standard', name: 'ID Photo', description: 'Standard Grid', icon: '📋', slots: 1 },
-  { id: 'wanted', name: 'Wanted', description: 'Single Poster', icon: '🤠', slots: 1 },
+  { id: 'cinema', name: 'Life4Cuts', description: '4-Frame Strip', icon: '🎞️', slots: 4, aspectRatio: 1.5 }, // 3:2 Landscape
+  { id: 'magazine', name: 'Magazine', description: 'Kawaii Collage', icon: '💖', slots: 4, aspectRatio: 0.75 }, // 3:4 Portrait
+  { id: 'standard', name: 'ID Photo', description: 'Standard Grid', icon: '📋', slots: 1, aspectRatio: 0.8 }, // 4:5 Portrait approx
+  { id: 'driver_license', name: 'License', description: 'US Driver License', icon: '🪪', slots: 1, aspectRatio: 0.8 }, // Photo itself is portrait
 ];
 
 export const PEN_COLORS = [

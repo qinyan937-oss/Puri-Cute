@@ -12,7 +12,7 @@ export interface BackgroundPreset {
   id: string;
   name: string;
   value: string; // CSS color or gradient string
-  type: 'color' | 'gradient';
+  type: 'color' | 'gradient' | 'pattern';
 }
 
 export interface FramePreset {
@@ -35,6 +35,7 @@ export interface LayoutTemplate {
   description: string;
   icon: string;
   slots: number; // Number of photo slots in this template
+  aspectRatio: number; // width / height (e.g. 0.75 for 3:4 portrait, 1.5 for 3:2 landscape)
 }
 
 // --- Decoration Types ---
@@ -48,6 +49,7 @@ export interface Stroke {
   color: string;
   width: number;
   points: Point[];
+  isNeon?: boolean; // New: Supports Neon/Fluorescent style
 }
 
 export interface StickerItem {
