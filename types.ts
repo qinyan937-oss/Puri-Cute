@@ -73,3 +73,19 @@ export interface ImageTransform {
     y: number;
     scale: number;
 }
+
+export interface RenderParams {
+  canvas: HTMLCanvasElement;
+  personImage: HTMLImageElement;
+  backgroundImage?: BackgroundPreset;
+  frameImage?: HTMLImageElement | null;
+  lightingEnabled: boolean;
+  noiseLevel?: number;
+  showDate?: boolean;
+  decorations?: DecorationState;
+  selectedStickerId?: string | null;
+  imageTransform?: ImageTransform;
+  isMoeMode?: boolean; 
+  aspectRatio?: number;
+  isImageFit?: boolean; // New: Fit vs Fill mode
+}

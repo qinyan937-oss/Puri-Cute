@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { AppState, BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, Stroke, StickerItem, ImageTransform } from './types';
 import { BACKGROUND_PRESETS, FRAME_PRESETS, LAYOUT_TEMPLATES, STICKER_CATEGORIES, PEN_COLORS } from './constants';
@@ -59,7 +60,11 @@ const TRANSLATIONS = {
     save_hint: "Long press to save",
     save_btn: "Save 📥",
     back: "Back",
-    loading: "Magic..."
+    loading: "Magic...",
+    mode_fit: "Fit",
+    mode_fill: "Fill",
+    collapse: "Hide",
+    expand: "Show"
   },
   zh: {
     appTitle: "KIRA 闪闪",
@@ -113,7 +118,11 @@ const TRANSLATIONS = {
     save_hint: "保存到相册",
     save_btn: "保存图片 📥",
     back: "返回",
-    loading: "施法中..."
+    loading: "施法中...",
+    mode_fit: "留白",
+    mode_fill: "填满",
+    collapse: "收起",
+    expand: "展开"
   }
 };
 
@@ -142,6 +151,8 @@ const Icons = {
     Frame: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>,
     Brush: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2.5 2.24 0 .46.62.92 1 .92 1.81 0 2.54-.57 3.32-.57 1.77 0 3-1.35 3-3.02"/></svg>,
     Smile: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>,
+    ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
+    ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>,
 };
 
 
@@ -157,8 +168,10 @@ const App = () => {
 
   // Editor State
   const [activeTab, setActiveTab] = useState<'adjust' | 'frame' | 'draw' | 'sticker'>('adjust');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
   const [lightingEnabled, setLightingEnabled] = useState(true); 
   const [isMoeMode, setIsMoeMode] = useState(false);
+  const [isImageFit, setIsImageFit] = useState(false); 
   const [noiseLevel, setNoiseLevel] = useState(0);
   const [showDate, setShowDate] = useState(true);
   const [currentBg, setCurrentBg] = useState<BackgroundPreset>(BACKGROUND_PRESETS[0]);
@@ -206,6 +219,13 @@ const App = () => {
   // --- Effects ---
 
   useEffect(() => {
+    if (appState === AppState.CAMERA && cameraStream && videoRef.current) {
+        videoRef.current.srcObject = cameraStream;
+        videoRef.current.play().catch(e => console.error("Video play failed", e));
+    }
+  }, [appState, cameraStream]);
+
+  useEffect(() => {
     if (appState === AppState.EDIT && uploadedImages.length > 0) {
        const timeoutId = setTimeout(() => {
            uploadedImages.forEach((img, idx) => {
@@ -223,16 +243,17 @@ const App = () => {
                        selectedStickerId: idx === activeImageIndex ? selectedStickerId : null,
                        imageTransform: imageTransforms[idx],
                        isMoeMode, 
-                       aspectRatio: selectedTemplate.aspectRatio
+                       aspectRatio: selectedTemplate.aspectRatio,
+                       isImageFit
                    });
                }
            });
        }, 10);
        return () => clearTimeout(timeoutId);
     }
-  }, [appState, uploadedImages, currentBg, currentFrameImage, lightingEnabled, isMoeMode, noiseLevel, showDate, decorations, selectedStickerId, imageTransforms, activeImageIndex, selectedTemplate.aspectRatio]);
+  }, [appState, uploadedImages, currentBg, currentFrameImage, lightingEnabled, isMoeMode, isImageFit, noiseLevel, showDate, decorations, selectedStickerId, imageTransforms, activeImageIndex, selectedTemplate.aspectRatio]);
 
-  // --- Handlers (Logic Identical to Previous Version) ---
+  // --- Handlers ---
   const handleTemplateSelect = (tpl: LayoutTemplate) => {
     setSelectedTemplate(tpl);
     setUploadedImages([]);
@@ -242,6 +263,7 @@ const App = () => {
     setCustomName("KIRA USER");
     setCustomLocation("TOKYO / NAGOYA");
     setCustomDate(new Date().toISOString().split('T')[0].replace(/-/g, '/'));
+    setIsImageFit(false);
     canvasRefs.current = []; 
     setAppState(AppState.UPLOAD);
     playSound('pop');
@@ -298,14 +320,20 @@ const App = () => {
 
   const startCamera = async () => {
       try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 } });
+          const constraints = {
+             audio: false,
+             video: { 
+                 facingMode: 'user', 
+                 width: { ideal: 1280 }, 
+                 height: { ideal: 720 } 
+             }
+          };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
           setCameraStream(stream);
-          if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-          }
           setAppState(AppState.CAMERA);
       } catch (e) {
-          alert("Could not access camera 📷");
+          console.error("Camera access failed:", e);
+          alert("无法访问相机 (Unable to access camera). Please check permissions.");
       }
   };
 
@@ -510,7 +538,7 @@ const App = () => {
                   canvas,
                   personImage: img,
                   backgroundImage: currentBg,
-                  frameImage: currentFrameImage, // FIX: Pass currentFrameImage instead of null
+                  frameImage: currentFrameImage, 
                   lightingEnabled,
                   noiseLevel,
                   showDate,
@@ -518,7 +546,8 @@ const App = () => {
                   selectedStickerId: null,
                   imageTransform: imageTransforms[idx],
                   isMoeMode,
-                  aspectRatio: selectedTemplate.aspectRatio
+                  aspectRatio: selectedTemplate.aspectRatio,
+                  isImageFit
               });
           }
       });
@@ -526,7 +555,8 @@ const App = () => {
       try {
           const validCanvases = canvasRefs.current.filter((c): c is HTMLCanvasElement => c !== null && c instanceof HTMLCanvasElement && c.width > 0 && c.height > 0);
           if (validCanvases.length === 0) throw new Error("No valid image data found.");
-          const url = generateLayoutSheet(validCanvases, selectedTemplate.id, customLocation, customName, customDate);
+          // Pass currentBg to generateLayoutSheet
+          const url = generateLayoutSheet(validCanvases, selectedTemplate.id, customLocation, customName, customDate, currentBg);
           if (!url) throw new Error("Generation produced empty result.");
           setFinalLayoutUrl(url);
           setAppState(AppState.LAYOUT);
@@ -665,9 +695,9 @@ const App = () => {
   );
 
   const renderEditor = () => (
-      <div className="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-[#fff0f5]">
-          {/* Main Workspace */}
-          <div className="flex-1 min-h-0 relative flex items-center justify-center p-4 overflow-hidden">
+      <div className="fixed inset-0 w-full flex flex-col md:flex-row overflow-hidden bg-[#fff0f5]">
+          {/* Main Workspace - Increased padding to p-8 to shrink image usage area */}
+          <div className="flex-1 min-h-0 relative flex items-center justify-center p-8 overflow-hidden">
               <div className="relative w-full h-full max-w-2xl max-h-full flex items-center justify-center">
                   <div className="grid gap-4 w-full h-full justify-center content-center" style={{ 
                       gridTemplateColumns: selectedTemplate.slots > 1 ? '1fr 1fr' : '1fr',
@@ -704,11 +734,11 @@ const App = () => {
               </div>
           </div>
 
-          {/* Controls Sidebar - The "Floating" Card */}
-          <div className="flex-none z-20 w-full md:w-[420px] bg-white/90 backdrop-blur-2xl shadow-[0_-20px_50px_-20px_rgba(244,114,182,0.4)] flex flex-col rounded-t-[2.5rem] md:rounded-l-[2.5rem] md:rounded-tr-none max-h-[55vh] md:max-h-full border-t border-l border-white/60">
+          {/* Controls Sidebar - Added Toggle Logic */}
+          <div className={`flex-none z-20 w-full md:w-[420px] bg-white/90 backdrop-blur-2xl shadow-[0_-20px_50px_-20px_rgba(244,114,182,0.4)] flex flex-col rounded-t-[2.5rem] md:rounded-l-[2.5rem] md:rounded-tr-none border-t border-l border-white/60 transition-all duration-300 ${isSidebarOpen ? 'max-h-[55vh] md:h-full' : 'max-h-[140px] md:h-full'}`}>
               
               {/* Cute Tabs */}
-              <div className="flex justify-around p-4 pb-2">
+              <div className="relative flex justify-around p-4 pb-2">
                   {[
                       { id: 'adjust', icon: <Icons.Adjust />, label: t.tab_adjust, color: 'bg-blue-100' },
                       { id: 'frame', icon: <Icons.Frame />, label: t.tab_frame, color: 'bg-purple-100' },
@@ -717,7 +747,10 @@ const App = () => {
                   ].map(tab => (
                       <button 
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => {
+                            setActiveTab(tab.id as any);
+                            setIsSidebarOpen(true);
+                        }}
                         className="flex flex-col items-center gap-1 group"
                       >
                           <IconContainer color={tab.color} active={activeTab === tab.id}>
@@ -726,11 +759,20 @@ const App = () => {
                           <span className={`text-[10px] font-bold transition-colors ${activeTab === tab.id ? 'text-pink-500' : 'text-slate-400'}`}>{tab.label}</span>
                       </button>
                   ))}
+                  
+                  {/* Collapse Button */}
+                  <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-400 hover:text-pink-500 transition-colors md:hidden"
+                  >
+                     {isSidebarOpen ? <Icons.ChevronDown /> : <Icons.ChevronUp />}
+                  </button>
               </div>
               
               <div className="w-full h-px bg-slate-100 mb-2"></div>
 
-              {/* Tools Content */}
+              {/* Tools Content - Scrollable Area (Hidden when collapsed) */}
+              {isSidebarOpen && (
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   {activeTab === 'adjust' && (
                       <div className="animate-fade-in space-y-5">
@@ -784,9 +826,18 @@ const App = () => {
                         )}
 
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                             <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
-                                 <span>{t.edit_photo_hint} (Scale)</span>
-                                 <span>{imageTransforms[activeImageIndex].scale.toFixed(1)}x</span>
+                             <div className="flex justify-between items-center mb-2">
+                                 <label className="text-xs font-bold text-slate-500">{t.edit_photo_hint} (Scale)</label>
+                                 <div className="flex bg-slate-200 rounded-lg p-0.5">
+                                      <button 
+                                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${!isImageFit ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                        onClick={() => setIsImageFit(false)}
+                                      >{t.mode_fill}</button>
+                                      <button 
+                                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${isImageFit ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                        onClick={() => setIsImageFit(true)}
+                                      >{t.mode_fit}</button>
+                                 </div>
                              </div>
                              <input 
                                type="range" min="0.5" max="2" step="0.1"
@@ -810,10 +861,10 @@ const App = () => {
 
                         <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                              <label className="text-sm font-bold text-slate-600">{t.date_stamp}</label>
-                             <input type="checkbox" checked={showDate} onChange={(e) => setShowDate(e.target.checked)} className="w-6 h-6 accent-pink-500 rounded-lg" />
+                             <input type="checkbox" checked={showDate} onChange={(e) => setShowDate(e.target.checked)} className="w-6 h-6 accent-pink-500" />
                         </div>
                         
-                        <div className="space-y-3 pt-4">
+                        <div className="space-y-3 pt-4 pb-2">
                              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Background</label>
                              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide px-1">
                                  {BACKGROUND_PRESETS.map(bg => (
@@ -860,15 +911,29 @@ const App = () => {
                   {activeTab === 'draw' && (
                       <div className="animate-fade-in space-y-6">
                         <div className="bg-slate-50 p-4 rounded-2xl">
-                            <label className="text-xs font-bold text-slate-500 flex justify-between mb-2">
-                                <span>{t.brush_size}</span>
-                                <span>{brushSize}px</span>
-                            </label>
-                            <input 
-                                type="range" min="2" max="30" step="1" 
-                                value={brushSize} 
-                                onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                            />
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-bold text-slate-500">{t.brush_size}</label>
+                                <span className="text-xs font-bold text-slate-400">{brushSize}px</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <input 
+                                    type="range" min="4" max="80" step="2" 
+                                    value={brushSize} 
+                                    onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                                    className="flex-1"
+                                />
+                                <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                                    <div 
+                                        style={{ 
+                                            width: Math.min(32, Math.max(4, brushSize / 2.5)), 
+                                            height: Math.min(32, Math.max(4, brushSize / 2.5)), 
+                                            backgroundColor: currentPenColor,
+                                            boxShadow: isNeonPen ? `0 0 6px ${currentPenColor}, inset 0 0 4px white` : 'none',
+                                            borderRadius: '50%'
+                                        }} 
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-center gap-3">
@@ -936,7 +1001,6 @@ const App = () => {
                                                    onClick={() => addSticker(item.id)}
                                                    className="aspect-square bg-white rounded-xl border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 hover:border-pink-200 hover:bg-pink-50 flex items-center justify-center relative overflow-hidden group shadow-sm transition-all"
                                                  >
-                                                     {/* Show Text Instead of Generic Ball for Better UX */}
                                                      <div className="flex flex-col items-center justify-center pointer-events-none">
                                                          <div className={`w-3 h-3 rounded-full mb-1 ${cat === 'Y2K' ? 'bg-gradient-to-tr from-pink-200 to-blue-200 shadow-sm' : 'bg-slate-100'}`}></div>
                                                          <span className="text-[9px] font-bold text-slate-500 leading-tight text-center px-1">
@@ -953,6 +1017,7 @@ const App = () => {
                       </div>
                   )}
               </div>
+              )}
 
               {/* Action Bar */}
               <div className="p-4 border-t border-slate-100 flex gap-4 flex-none bg-white">
