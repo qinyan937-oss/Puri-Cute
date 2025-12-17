@@ -1,4 +1,5 @@
 
+
 import { BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, ImageTransform, RenderParams } from "../types";
 
 // Helper to load image from URL/Blob
@@ -969,6 +970,7 @@ export const generateLayoutSheet = (
 
   // Use current date if not provided
   const displayDate = customDateText || new Date().toISOString().split('T')[0];
+  const MAX_OUTPUT_DIMENSION = 1900; // Responsive output limit
 
   // Helper to fill sheet background from preset
   const fillSheetBackground = (width: number, height: number, defaultColor: string) => {
@@ -1037,17 +1039,18 @@ export const generateLayoutSheet = (
      const sheetW = photoW + (margin * 2);
      const sheetH = headerH + (photoH * 4) + (gap * 3) + footerH + margin;
      
-     sheet.width = sheetW;
-     sheet.height = sheetH;
+     // Responsive Scaling
+     const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
+     sheet.width = sheetW * scale;
+     sheet.height = sheetH * scale;
+     ctx.scale(scale, scale);
      
-     // Classic strip uses black usually, but let's allow custom background if it's not the default
-     // Or keep it black for 'cinema' feel. Let's use custom background if user selected one, else black.
-     if (backgroundPreset) {
-         fillSheetBackground(sheetW, sheetH, '#111');
-     } else {
-         ctx.fillStyle = '#111';
-         ctx.fillRect(0, 0, sheetW, sheetH);
-     }
+     // FORCE BLACK BACKGROUND FOR CLASSIC FILM LOOK
+     // The user specifically requested "It's a frame... do not reveal background".
+     // Using the photo background for the strip ruins the "frame" effect.
+     // We enforce a classic Black Film Strip look (#111111) to ensure the "frame lines" (gaps) are visible.
+     ctx.fillStyle = '#111111';
+     ctx.fillRect(0, 0, sheetW, sheetH);
      
      let y = headerH;
      canvases.forEach((c) => {
@@ -1057,9 +1060,8 @@ export const generateLayoutSheet = (
      
      const footerCenterY = sheetH - (footerH / 2) - margin;
      
-     // Logo Text (Adaptive Color)
-     const isDarkBg = !backgroundPreset || backgroundPreset.id === 'bg-black' || backgroundPreset.type === 'gradient';
-     ctx.fillStyle = isDarkBg ? '#FFFFFF' : '#111111';
+     // Logo Text (Fixed White due to black background)
+     ctx.fillStyle = '#FFFFFF';
 
      ctx.font = 'bold 70px "Courier New", monospace'; 
      ctx.textAlign = 'center';
@@ -1067,7 +1069,7 @@ export const generateLayoutSheet = (
      ctx.fillText("LIFE4CUTS", sheetW/2, footerCenterY - 40);
      
      ctx.font = '30px "Courier New", monospace';
-     ctx.fillStyle = isDarkBg ? '#AAAAAA' : '#555555';
+     ctx.fillStyle = '#AAAAAA';
      ctx.fillText(displayDate.replace(/\//g, '.'), sheetW/2, footerCenterY + 40);
      
   } else if (layoutId === 'magazine') {
@@ -1081,8 +1083,11 @@ export const generateLayoutSheet = (
       const sheetW = (photoW * cols) + gap + (margin * 2);
       const sheetH = headerH + (photoH * rows) + gap + (margin * 2);
       
-      sheet.width = sheetW;
-      sheet.height = sheetH;
+      // Responsive Scaling
+      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
+      sheet.width = sheetW * scale;
+      sheet.height = sheetH * scale;
+      ctx.scale(scale, scale);
       
       // Use Custom Background
       fillSheetBackground(sheetW, sheetH, '#fce7f3');
@@ -1116,8 +1121,11 @@ export const generateLayoutSheet = (
       const sheetW = 1500;
       const sheetH = 1050;
       
-      sheet.width = sheetW;
-      sheet.height = sheetH;
+      // Responsive Scaling (Standard is small enough, but apply safe limit anyway)
+      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
+      sheet.width = sheetW * scale;
+      sheet.height = sheetH * scale;
+      ctx.scale(scale, scale);
       
       // --- 1. Draw Professional Cutting Mat Grid ---
       ctx.fillStyle = '#FFFFFF';
@@ -1263,8 +1271,12 @@ export const generateLayoutSheet = (
   } else if (layoutId === 'driver_license') {
       const cardW = 1000;
       const cardH = 600;
-      sheet.width = cardW;
-      sheet.height = cardH;
+      
+      // Responsive Scaling
+      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(cardW, cardH));
+      sheet.width = cardW * scale;
+      sheet.height = cardH * scale;
+      ctx.scale(scale, scale);
       
       // Allows background to tint the license? 
       // A license has a standard look, let's keep it mostly standard but maybe use the gradient
