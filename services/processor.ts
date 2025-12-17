@@ -830,8 +830,26 @@ export const renderComposite = (params: RenderParams) => {
   // 2. Person Image (Only if valid)
   if (personImage && (personImage.width > 0 || personImage.naturalWidth > 0)) {
     ctx.save();
+    
+    // --- UPDATED FILTER LOGIC ---
+    let filterStr = "";
+    
+    // 1. Beauty/Lighting Filter
     if (lightingEnabled) {
-       ctx.filter = "brightness(1.15) contrast(0.95) saturate(1.05)";
+       filterStr += "brightness(1.15) contrast(0.95) saturate(1.05) ";
+    }
+    
+    // 2. Film Look (Contrast Adjustment)
+    if (filmLookStrength && filmLookStrength > 0) {
+        // Increase contrast significantly (1.0 to 1.6)
+        // Slight desaturation for that "faded" film vibe
+        const contrastVal = 1 + (filmLookStrength * 0.6);
+        const saturateVal = 1 - (filmLookStrength * 0.2);
+        filterStr += `contrast(${contrastVal}) saturate(${saturateVal}) `;
+    }
+
+    if (filterStr) {
+        ctx.filter = filterStr.trim();
     }
     
     // Custom Manual Transform Logic
@@ -1105,15 +1123,7 @@ export const generateLayoutSheet = (
           
           ctx.drawImage(c, margin, margin, photoSize, drawH);
           
-          // Text
-          ctx.fillStyle = '#333';
-          ctx.textAlign = 'center';
-          ctx.font = 'bold 50px "Brush Script MT", cursive';
-          ctx.fillText(nameText || 'KIRA Moment', pW / 2, pH - 150);
-          
-          ctx.font = '24px sans-serif';
-          ctx.fillStyle = '#888';
-          ctx.fillText(dateText, pW / 2, pH - 80);
+          // Removed Text as requested
       }
 
   } else if (templateId === 'driver_license') {
