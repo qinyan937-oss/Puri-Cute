@@ -81,6 +81,7 @@ export interface RenderParams {
   frameImage?: HTMLImageElement | null;
   lightingEnabled: boolean;
   noiseLevel?: number;
+  filmLookStrength?: number; // New: Film look intensity (0-1)
   showDate?: boolean;
   decorations?: DecorationState;
   selectedStickerId?: string | null;

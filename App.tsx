@@ -34,6 +34,7 @@ const TRANSLATIONS = {
     beauty_filter: "Beauty",
     moe_magic: "Moe!", 
     retro_grain: "Grain",
+    film_look: "Film Tone",
     date_stamp: "Date",
     frames: "Frames",
     upload_frame: "Custom", 
@@ -92,6 +93,7 @@ const TRANSLATIONS = {
     beauty_filter: "美颜",
     moe_magic: "萌化!", 
     retro_grain: "颗粒感",
+    film_look: "胶片感",
     date_stamp: "日期",
     frames: "相框",
     upload_frame: "上传",
@@ -173,6 +175,7 @@ const App = () => {
   const [isMoeMode, setIsMoeMode] = useState(false);
   const [isImageFit, setIsImageFit] = useState(false); 
   const [noiseLevel, setNoiseLevel] = useState(0);
+  const [filmLookStrength, setFilmLookStrength] = useState(0);
   const [showDate, setShowDate] = useState(true);
   const [currentBg, setCurrentBg] = useState<BackgroundPreset>(BACKGROUND_PRESETS[0]);
   
@@ -238,6 +241,7 @@ const App = () => {
                        frameImage: currentFrameImage,
                        lightingEnabled,
                        noiseLevel,
+                       filmLookStrength,
                        showDate,
                        decorations: decorations[idx],
                        selectedStickerId: idx === activeImageIndex ? selectedStickerId : null,
@@ -251,7 +255,7 @@ const App = () => {
        }, 10);
        return () => clearTimeout(timeoutId);
     }
-  }, [appState, uploadedImages, currentBg, currentFrameImage, lightingEnabled, isMoeMode, isImageFit, noiseLevel, showDate, decorations, selectedStickerId, imageTransforms, activeImageIndex, selectedTemplate.aspectRatio]);
+  }, [appState, uploadedImages, currentBg, currentFrameImage, lightingEnabled, isMoeMode, isImageFit, noiseLevel, filmLookStrength, showDate, decorations, selectedStickerId, imageTransforms, activeImageIndex, selectedTemplate.aspectRatio]);
 
   // --- Handlers ---
   const handleTemplateSelect = (tpl: LayoutTemplate) => {
@@ -547,6 +551,7 @@ const App = () => {
                   frameImage: currentFrameImage, 
                   lightingEnabled,
                   noiseLevel,
+                  filmLookStrength,
                   showDate,
                   decorations: decorations[idx],
                   selectedStickerId: null,
@@ -865,6 +870,15 @@ const App = () => {
                               type="range" min="0" max="1" step="0.1" 
                               value={noiseLevel} 
                               onChange={(e) => setNoiseLevel(parseFloat(e.target.value))}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.film_look}</label>
+                            <input 
+                              type="range" min="0" max="1" step="0.1" 
+                              value={filmLookStrength} 
+                              onChange={(e) => setFilmLookStrength(parseFloat(e.target.value))}
                             />
                         </div>
 

@@ -656,6 +656,35 @@ const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: 
 };
 
 /**
+ * EFFECT: Draw Film Look Overlay (Vignette + Warm Color)
+ */
+const drawFilmLookOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, strength: number) => {
+    if (strength <= 0) return;
+
+    ctx.save();
+
+    // 1. Vignette (Dark corners)
+    // Create a radial gradient from transparent center to black corners
+    const radius = Math.max(width, height) * 0.8;
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, radius * 0.5, width / 2, height / 2, radius);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, `rgba(0,0,0,${strength * 0.6})`); 
+
+    ctx.fillStyle = vignette;
+    ctx.globalCompositeOperation = 'source-over'; 
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Color Grading (Vintage Warm Tint)
+    // Apply a warm/golden tone with soft-light blending
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.fillStyle = `rgba(243, 229, 171, ${strength * 0.5})`; // Moccasin/Vanilla tone
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.restore();
+};
+
+
+/**
  * HELPER: Draw Hand-Drawn Star
  */
 const drawHandDrawnStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, outerRadius: number, innerRadius: number, color: string) => {
@@ -723,7 +752,7 @@ export const STICKER_BASE_SIZE = 150; // New base size for vector stickers
 export const STICKER_HANDLE_RADIUS = 24; // Exposed for hit testing
 
 export const renderComposite = (params: RenderParams) => {
-  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, showDate, decorations, selectedStickerId, imageTransform, isMoeMode, aspectRatio, isImageFit } = params;
+  const { canvas, personImage, backgroundImage, frameImage, lightingEnabled, noiseLevel, filmLookStrength, showDate, decorations, selectedStickerId, imageTransform, isMoeMode, aspectRatio, isImageFit } = params;
   const ctx = canvas.getContext('2d');
   
   // Guard: Context must exist
@@ -971,471 +1000,207 @@ export const renderComposite = (params: RenderParams) => {
       drawNoiseOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, noiseLevel);
   }
 
-  // 5. Date Stamp (New)
+  // 5. Film Look (New)
+  if (filmLookStrength && filmLookStrength > 0) {
+      drawFilmLookOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, filmLookStrength);
+  }
+
+  // 6. Date Stamp (New)
   if (showDate) {
       drawDateStamp(ctx, TARGET_WIDTH, TARGET_HEIGHT);
   }
   
   ctx.restore();
 
-  // 6. Frame
+  // 7. Frame
   if (frameImage) {
     ctx.drawImage(frameImage, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
   }
 };
 
+/**
+ * GENERATE FINAL LAYOUT SHEET
+ */
 export const generateLayoutSheet = (
   canvases: HTMLCanvasElement[],
-  layoutId: string,
-  locationText: string = "TOKYO",
-  customName: string = "KIRA USER",
-  customDateText: string = "",
-  backgroundPreset?: BackgroundPreset
-): string | null => {
+  templateId: string,
+  locationText: string,
+  nameText: string,
+  dateText: string,
+  bgPreset: BackgroundPreset
+): string => {
   const sheet = document.createElement('canvas');
   const ctx = sheet.getContext('2d');
-  if (!ctx || canvases.length === 0) return null;
+  if (!ctx) return '';
 
-  // Use current date if not provided
-  const displayDate = customDateText || new Date().toISOString().split('T')[0];
-  const MAX_OUTPUT_DIMENSION = 1900; // Responsive output limit
+  // Default Sheet Size
+  sheet.width = 1200;
+  sheet.height = 1800;
 
-  // Helper to fill sheet background from preset
-  const fillSheetBackground = (width: number, height: number, defaultColor: string) => {
-      if (!backgroundPreset) {
-          ctx.fillStyle = defaultColor;
-          ctx.fillRect(0, 0, width, height);
-          return;
-      }
-      
-      if (backgroundPreset.type === 'color' || backgroundPreset.type === 'gradient' || backgroundPreset.type === 'pattern') {
-        if (backgroundPreset.type === 'gradient') {
-             const grad = ctx.createLinearGradient(0, 0, width, height);
-             if (backgroundPreset.id.includes('grad-1')) {
-                grad.addColorStop(0, '#fbc2eb');
-                grad.addColorStop(1, '#a6c1ee');
-             } else if (backgroundPreset.id.includes('grad-2')) {
-                grad.addColorStop(0, '#f6d365');
-                grad.addColorStop(1, '#fda085');
-             } else if (backgroundPreset.id.includes('grad-3')) {
-                grad.addColorStop(0, '#a18cd1');
-                grad.addColorStop(1, '#fbc2eb');
-             } else {
-                grad.addColorStop(0, '#ffffff');
-                grad.addColorStop(1, '#eeeeee');
-             }
-             ctx.fillStyle = grad;
-             ctx.fillRect(0, 0, width, height);
-        } else if (backgroundPreset.type === 'pattern') {
-             if (backgroundPreset.id === 'bg-dots-pink') {
-                 ctx.fillStyle = '#ffffff';
-                 ctx.fillRect(0, 0, width, height);
-                 ctx.fillStyle = '#fbcfe8'; 
-                 const spacing = 40;
-                 const radius = 8;
-                 for(let y=0; y<height; y+=spacing) {
-                     for(let x=0; x<width; x+=spacing) {
-                         const offsetX = (y/spacing) % 2 === 0 ? 0 : spacing/2;
-                         ctx.beginPath();
-                         ctx.arc(x + offsetX, y, radius, 0, Math.PI*2);
-                         ctx.fill();
-                     }
-                 }
-             } else {
-                 ctx.fillStyle = '#ffffff';
-                 ctx.fillRect(0, 0, width, height);
-             }
-        } else {
-            ctx.fillStyle = backgroundPreset.value;
-            ctx.fillRect(0, 0, width, height);
-        }
-      } else {
-           ctx.fillStyle = defaultColor;
-           ctx.fillRect(0, 0, width, height);
-      }
-  };
-
-  if (layoutId === 'cinema') {
-     // ... LIFE4CUTS ...
-     const photoW = canvases[0].width;
-     const photoH = canvases[0].height;
-     const margin = 40; 
-     const gap = 30;    
-     const headerH = 60; 
-     const footerH = 300; 
+  if (templateId === 'cinema') {
+     // Vertical Strip: 4 frames
+     // Frame size: 600x400 (3:2)
+     const pW = 600;
+     const pH = 400;
+     const gap = 20;
+     const paddingX = 40;
+     const paddingY = 120; // Header space
+     const footerH = 100;
      
-     const sheetW = photoW + (margin * 2);
-     const sheetH = headerH + (photoH * 4) + (gap * 3) + footerH + margin;
+     sheet.width = pW + paddingX * 2;
+     sheet.height = paddingY + (pH * 4) + (gap * 3) + footerH;
      
-     // Responsive Scaling
-     const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
-     sheet.width = sheetW * scale;
-     sheet.height = sheetH * scale;
-     ctx.scale(scale, scale);
+     // Background
+     ctx.fillStyle = '#fff';
+     if (bgPreset.type === 'color') ctx.fillStyle = bgPreset.value;
+     // Fallback for patterns/gradients to a tint
+     else if (bgPreset.id.includes('pink')) ctx.fillStyle = '#fff0f5';
+     else if (bgPreset.id.includes('blue')) ctx.fillStyle = '#f0f9ff';
+     ctx.fillRect(0, 0, sheet.width, sheet.height);
      
-     // FORCE BLACK BACKGROUND FOR CLASSIC FILM LOOK
-     // The user specifically requested "It's a frame... do not reveal background".
-     // Using the photo background for the strip ruins the "frame" effect.
-     // We enforce a classic Black Film Strip look (#111111) to ensure the "frame lines" (gaps) are visible.
-     ctx.fillStyle = '#111111';
-     ctx.fillRect(0, 0, sheetW, sheetH);
-     
-     let y = headerH;
-     canvases.forEach((c) => {
-         ctx.drawImage(c, margin, y, photoW, photoH);
-         y += photoH + gap;
-     });
-     
-     const footerCenterY = sheetH - (footerH / 2) - margin;
-     
-     // Logo Text (Fixed White due to black background)
-     ctx.fillStyle = '#FFFFFF';
-
-     ctx.font = 'bold 70px "Courier New", monospace'; 
+     // Draw Title
+     ctx.fillStyle = '#333';
+     ctx.font = '900 60px "Arial Black", sans-serif';
      ctx.textAlign = 'center';
      ctx.textBaseline = 'middle';
-     ctx.fillText("LIFE4CUTS", sheetW/2, footerCenterY - 40);
+     ctx.fillText('KIRA', sheet.width / 2, paddingY / 2);
+
+     let y = paddingY;
+     canvases.forEach((c, i) => {
+         if (i >= 4) return;
+         ctx.save();
+         // Add shadow to photos
+         ctx.shadowColor = 'rgba(0,0,0,0.1)';
+         ctx.shadowBlur = 10;
+         ctx.shadowOffsetY = 5;
+         ctx.drawImage(c, paddingX, y, pW, pH);
+         ctx.restore();
+         y += pH + gap;
+     });
      
-     ctx.font = '30px "Courier New", monospace';
-     ctx.fillStyle = '#AAAAAA';
-     ctx.fillText(displayDate.replace(/\//g, '.'), sheetW/2, footerCenterY + 40);
-     
-  } else if (layoutId === 'polaroid') {
-      // NEW POLAROID LAYOUT (Starry Frame, Colorful Background)
-      const photoW = canvases[0].width;
-      const photoH = canvases[0].height;
+     // Footer
+     ctx.fillStyle = '#666';
+     ctx.font = 'bold 24px monospace';
+     ctx.fillText(`${dateText} • ${locationText}`, sheet.width / 2, sheet.height - footerH / 2);
+
+  } else if (templateId === 'polaroid') {
+      // Single Polaroid style
+      const pW = 800;
+      const pH = 1000;
+      sheet.width = pW;
+      sheet.height = pH;
       
-      // Standard Polaroid is roughly 3.5in x 4.2in.
-      // Photo area is roughly square-ish or portrait.
-      // We will make a frame around the photo.
+      ctx.fillStyle = '#fff';
+      if (bgPreset.type === 'color') ctx.fillStyle = bgPreset.value;
+      else ctx.fillStyle = '#fdfdfd';
+
+      ctx.fillRect(0, 0, sheet.width, sheet.height);
+
+      if (canvases[0]) {
+          const margin = 50;
+          const photoSize = pW - (margin * 2);
+          const c = canvases[0];
+          // Determine height based on source aspect ratio, but constraint it
+          const drawH = photoSize * (c.height / c.width);
+          
+          ctx.drawImage(c, margin, margin, photoSize, drawH);
+          
+          // Text
+          ctx.fillStyle = '#333';
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 50px "Brush Script MT", cursive';
+          ctx.fillText(nameText || 'KIRA Moment', pW / 2, pH - 150);
+          
+          ctx.font = '24px sans-serif';
+          ctx.fillStyle = '#888';
+          ctx.fillText(dateText, pW / 2, pH - 80);
+      }
+
+  } else if (templateId === 'driver_license') {
+      // Landscape Card
+      sheet.width = 1000;
+      sheet.height = 600;
       
-      const framePaddingX = 80;
-      const framePaddingTop = 80;
-      const framePaddingBottom = 250; // Thicker bottom
-      
-      const sheetW = photoW + (framePaddingX * 2);
-      const sheetH = photoH + framePaddingTop + framePaddingBottom;
-      
-      // Responsive Scaling
-      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
-      sheet.width = sheetW * scale;
-      sheet.height = sheetH * scale;
-      ctx.scale(scale, scale);
-      
-      // 1. Colorful Gradient Background (Rainbow style)
-      // Replaces the black in the reference image
-      const grad = ctx.createLinearGradient(0, 0, sheetW, sheetH);
-      grad.addColorStop(0, '#ff9a9e');
-      grad.addColorStop(0.2, '#fad0c4');
-      grad.addColorStop(0.4, '#fad0c4');
-      grad.addColorStop(0.6, '#a18cd1');
-      grad.addColorStop(0.8, '#fbc2eb');
-      grad.addColorStop(1, '#8fd3f4');
+      // BG
+      const grad = ctx.createLinearGradient(0,0,1000,600);
+      grad.addColorStop(0, '#fdfbfb');
+      grad.addColorStop(1, '#ebedee');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, sheetW, sheetH);
+      ctx.fillRect(0, 0, 1000, 600);
       
-      // 2. Draw White Stars on Border
-      // Randomly scatter stars on the frame area (Top, Left, Right, Bottom)
-      const borderStarsCount = 25;
-      for (let i = 0; i < borderStarsCount; i++) {
-          let x, y;
-          // Decide which border side to place star
-          const side = Math.random();
-          if (side < 0.25) { // Top
-              x = Math.random() * sheetW;
-              y = Math.random() * framePaddingTop;
-          } else if (side < 0.5) { // Bottom
-              x = Math.random() * sheetW;
-              y = sheetH - (Math.random() * framePaddingBottom);
-          } else if (side < 0.75) { // Left
-              x = Math.random() * framePaddingX;
-              y = Math.random() * sheetH;
-          } else { // Right
-              x = sheetW - (Math.random() * framePaddingX);
-              y = Math.random() * sheetH;
-          }
-          
-          const size = 10 + Math.random() * 20;
-          drawHandDrawnStar(ctx, x, y, size, size/2, '#FFFFFF');
-      }
-
-      // 3. Place Photo
-      // Draw a white bg behind photo for separation? Or just photo.
-      // Reference shows photo cleanly inside.
-      // Let's add a thin white border/stroke around photo to simulate the cut
+      // Header Pink Band
+      ctx.fillStyle = '#ff69b4';
+      ctx.fillRect(0, 40, 1000, 80);
+      
       ctx.fillStyle = 'white';
-      ctx.fillRect(framePaddingX - 5, framePaddingTop - 5, photoW + 10, photoH + 10);
+      ctx.font = 'bold 40px Arial';
+      ctx.fillText("KIRA OFFICIAL LICENSE", 40, 95);
       
-      ctx.drawImage(canvases[0], framePaddingX, framePaddingTop, photoW, photoH);
-      
-      // 5. Date/Text
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 36px "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(customName.toUpperCase(), sheetW / 2, sheetH - 120);
-      
-      ctx.font = '24px "Courier New", monospace';
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText(displayDate.replace(/\//g, '.'), sheetW / 2, sheetH - 70);
-
-  } else if (layoutId === 'standard') {
-      // Standard ID Photo - Usually White background is strictly required for the sheet, 
-      // but let's allow overriding for fun if user selected a pattern.
-      // But standard usually implies cutting mat. We'll keep the cutting mat but maybe tint it?
-      // No, keep standard strictly standard for the sheet to look like professional ID.
-      
-      const sheetW = 1500;
-      const sheetH = 1050;
-      
-      // Responsive Scaling (Standard is small enough, but apply safe limit anyway)
-      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
-      sheet.width = sheetW * scale;
-      sheet.height = sheetH * scale;
-      ctx.scale(scale, scale);
-      
-      // --- 1. Draw Professional Cutting Mat Grid ---
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, sheetW, sheetH);
-      
-      const bigGrid = 80;
-      const smallGrid = 20;
-      
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = '#e2e8f0'; 
-      for (let x = 0; x <= sheetW; x += smallGrid) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sheetH); ctx.stroke();
-      }
-      for (let y = 0; y <= sheetH; y += smallGrid) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sheetW, y); ctx.stroke();
-      }
-      
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#93c5fd'; 
-      for (let x = 0; x <= sheetW; x += bigGrid) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sheetH); ctx.stroke();
-      }
-      for (let y = 0; y <= sheetH; y += bigGrid) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sheetW, y); ctx.stroke();
-      }
-
-      // --- 2. Photo Layout ---
-      const startX = 60;
-      const startY = 60;
-      const largeW = 360;
-      const largeH = 480;
-      const smallW = 240;
-      const smallH = 320;
-      const gapLarge = 40;
-      const gapSmall = 26;
-      
-      for(let i=0; i<2; i++) {
-          const x = startX + (i * (largeW + gapLarge));
-          const y = startY;
-          drawCuttablePhoto(ctx, canvases[0], x, y, largeW, largeH);
-      }
-      const row2Y = startY + largeH + 60; 
-      for(let i=0; i<4; i++) {
-          const x = startX + (i * (smallW + gapSmall));
-          const y = row2Y;
-          drawCuttablePhoto(ctx, canvases[0], x, y, smallW, smallH);
-      }
-
-      // --- 3. Sidebar (Right Side - Unified Frame) ---
-      const sidebarX = 1130; 
-      const sidebarW = 310;
-      const sidebarH = 860; 
-      
-      ctx.strokeStyle = '#1e293b'; 
-      ctx.lineWidth = 2;
-      ctx.strokeRect(sidebarX, startY, sidebarW, sidebarH);
-      
-      // A. Independent Photo
-      const indepW = 240;
-      const indepH = 300;
-      const indepX = sidebarX + (sidebarW - indepW) / 2;
-      const indepY = startY + sidebarH - indepH - 30;
-      
-      drawCuttablePhoto(ctx, canvases[0], indepX, indepY, indepW, indepH);
-      
-      // B. Top Header
-      ctx.fillStyle = '#1e3a8a';
-      ctx.fillRect(sidebarX, startY, sidebarW, 80);
-      
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 36px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText("証明写真", sidebarX + sidebarW/2, startY + 55);
-      
-      // C. Info Section
-      const infoStartY = startY + 120;
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#0f172a';
-      
-      const iconSize = 40;
-      ctx.fillStyle = '#3b82f6';
-      ctx.fillRect(sidebarX + 30, infoStartY, 50, 35);
-      ctx.beginPath(); ctx.arc(sidebarX + 55, infoStartY + 17, 12, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.beginPath(); ctx.arc(sidebarX + 55, infoStartY + 17, 6, 0, Math.PI*2); ctx.fillStyle = '#3b82f6'; ctx.fill();
-      
-      ctx.fillStyle = '#3b82f6';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText("PERFECT*", sidebarX + 90, infoStartY + 25);
-      
-      ctx.beginPath();
-      ctx.moveTo(sidebarX + 30, infoStartY + 60);
-      ctx.lineTo(sidebarX + sidebarW - 30, infoStartY + 60);
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      let metaY = infoStartY + 100;
-      const labelX = sidebarX + 30;
-      const valueX = sidebarX + 30;
-      
-      const drawField = (label: string, value: string) => {
-          ctx.fillStyle = '#64748b';
-          ctx.font = 'bold 14px sans-serif';
-          ctx.fillText(label, labelX, metaY);
+      if (canvases[0]) {
+          // Photo
+          ctx.drawImage(canvases[0], 50, 150, 250, 312); 
           
-          metaY += 25;
-          ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 20px monospace';
-          const displayVal = value.length > 14 ? value.substring(0, 14) + '..' : value;
-          ctx.fillText(displayVal, valueX, metaY);
-          metaY += 40;
-      };
-      
-      drawField("NAME", customName);
-      drawField("DATE", displayDate);
-      drawField("LOCATION", locationText);
-      
-      metaY += 20;
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'italic 16px serif';
-      ctx.textAlign = 'right';
-      ctx.fillText("NO. 001-A4", sidebarX + sidebarW - 30, metaY);
-
-      // --- 4. Layout Size Indicators ---
-      ctx.textAlign = 'left';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillStyle = '#64748b'; 
-      
-      ctx.save();
-      ctx.translate(startX - 25, startY + largeH/2);
-      ctx.rotate(-Math.PI/2);
-      ctx.textAlign = 'center';
-      ctx.fillText("中型 (4.5x3.5)", 0, 0);
-      ctx.restore();
-      
-      ctx.save();
-      ctx.translate(startX - 25, row2Y + smallH/2);
-      ctx.rotate(-Math.PI/2);
-      ctx.textAlign = 'center';
-      ctx.fillText("免許 (3.0x2.4)", 0, 0);
-      ctx.restore();
-
-  } else if (layoutId === 'driver_license') {
-      const cardW = 1000;
-      const cardH = 600;
-      
-      // Responsive Scaling
-      const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(cardW, cardH));
-      sheet.width = cardW * scale;
-      sheet.height = cardH * scale;
-      ctx.scale(scale, scale);
-      
-      // Allows background to tint the license? 
-      // A license has a standard look, let's keep it mostly standard but maybe use the gradient
-      // if it's not a pattern.
-      if (backgroundPreset && backgroundPreset.type === 'gradient') {
-           fillSheetBackground(cardW, cardH, '#eef2ff');
-      } else {
-           const grad = ctx.createLinearGradient(0, 0, cardW, cardH);
-           grad.addColorStop(0, '#eef2ff');
-           grad.addColorStop(1, '#e0e7ff');
-           ctx.fillStyle = grad;
-           ctx.fillRect(0, 0, cardW, cardH);
+          // Fields
+          ctx.fillStyle = '#333';
+          ctx.textAlign = 'left';
+          const labels = ["NAME", "DOB", "LOC", "CLASS"];
+          const values = [nameText, dateText, locationText, "QT-3.14"];
+          
+          let ty = 180;
+          labels.forEach((l, i) => {
+              ctx.font = 'bold 20px Arial';
+              ctx.fillStyle = '#ff69b4';
+              ctx.fillText(l, 350, ty);
+              
+              ctx.font = 'bold 30px Arial';
+              ctx.fillStyle = '#333';
+              ctx.fillText(values[i], 450, ty);
+              ty += 60;
+          });
+          
+          // Signature
+          ctx.font = 'italic 40px cursive';
+          ctx.fillStyle = '#666';
+          ctx.fillText(nameText, 350, 500);
+          
+          // Cute stamps
+          ctx.font = '60px Arial';
+          ctx.fillText("✨", 850, 500);
+          ctx.fillText("🎀", 900, 100);
       }
+
+  } else {
+      // Standard Grid (2x2)
+      sheet.width = 1200;
+      sheet.height = 1800;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0,0,sheet.width, sheet.height);
       
-      // Header
-      ctx.fillStyle = '#3b82f6'; 
-      ctx.fillRect(0, 0, cardW, 100);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 50px sans-serif';
-      ctx.fillText("DRIVER LICENSE", 40, 70);
-      ctx.font = '30px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText("KIRA STATE", cardW - 40, 70);
-      
-      // Photo
-      const photo = canvases[0];
-      const targetPhotoW = 250;
-      const targetPhotoH = targetPhotoW * (photo.height / photo.width);
-      const photoX = 50;
-      const photoY = 150;
-      
-      ctx.shadowColor = 'rgba(0,0,0,0.2)';
-      ctx.shadowBlur = 10;
-      ctx.drawImage(photo, photoX, photoY, targetPhotoW, targetPhotoH);
-      ctx.shadowBlur = 0;
-      
-      // Text Data
-      ctx.fillStyle = '#1e293b'; 
-      ctx.textAlign = 'left';
-      const textX = 350;
-      let textY = 200;
-      
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillStyle = '#64748b'; 
-      ctx.fillText("NAME", textX, textY);
-      ctx.fillStyle = '#000'; 
-      ctx.font = 'bold 40px sans-serif';
-      ctx.fillText(customName.toUpperCase(), textX, textY + 40);
-      
-      textY += 100;
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText("DOB", textX, textY);
-      ctx.fillStyle = '#000'; 
-      ctx.font = 'bold 30px sans-serif';
-      ctx.fillText("01-01-2000", textX, textY + 40);
-      
-      // Signature
-      ctx.font = 'italic 50px serif';
-      ctx.fillStyle = '#000';
-      ctx.fillText(customName, textX, 500);
-      
-      // Hologram
-      ctx.globalCompositeOperation = 'overlay';
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
-      ctx.beginPath();
-      ctx.arc(800, 300, 150, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillText("KIRA", 750, 300);
+      if (canvases[0]) {
+          const c = canvases[0];
+          // 4 copies
+          const m = 80;
+          const w = (1200 - m*3) / 2;
+          const h = (1800 - m*3) / 2; // Roughly fit
+          
+          // Adjust h to maintain aspect ratio of c if needed, or fill
+          // Let's assume standard ID photo ratio approx 0.8
+          
+          const pos = [
+              [m, m], [m*2 + w, m],
+              [m, m*2 + h], [m*2 + w, m*2 + h]
+          ];
+          
+          pos.forEach(([x, y]) => {
+              // Draw crop marks
+              ctx.strokeStyle = '#eee';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(x, y, w, h);
+              // Image
+              ctx.drawImage(c, x, y, w, h);
+          });
+      }
   }
 
-  return sheet.toDataURL('image/png', 1.0);
-};
-
-// Helper for drawing cut marks (Triangles as per reference)
-const drawCuttablePhoto = (ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, x: number, y: number, w: number, h: number) => {
-    // 1. Draw Photo
-    ctx.drawImage(img, x, y, w, h);
-    
-    // 2. Border
-    ctx.strokeStyle = '#cbd5e1'; 
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, w, h);
-    
-    // 3. Triangle Cut Marks
-    ctx.fillStyle = '#334155';
-    const tSize = 6;
-    
-    // Top
-    ctx.beginPath(); ctx.moveTo(x + (w*0.2), y - 2); ctx.lineTo(x + (w*0.2) + tSize, y - 2 - tSize); ctx.lineTo(x + (w*0.2) - tSize, y - 2 - tSize); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x + (w*0.8), y - 2); ctx.lineTo(x + (w*0.8) + tSize, y - 2 - tSize); ctx.lineTo(x + (w*0.8) - tSize, y - 2 - tSize); ctx.fill();
-
-    // Bottom
-    ctx.beginPath(); ctx.moveTo(x + (w*0.2), y + h + 2); ctx.lineTo(x + (w*0.2) + tSize, y + h + 2 + tSize); ctx.lineTo(x + (w*0.2) - tSize, y + h + 2 + tSize); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x + (w*0.8), y + h + 2); ctx.lineTo(x + (w*0.8) + tSize, y + h + 2 + tSize); ctx.lineTo(x + (w*0.8) - tSize, y + h + 2 + tSize); ctx.fill();
+  return sheet.toDataURL('image/png');
 };
