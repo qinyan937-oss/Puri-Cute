@@ -625,7 +625,6 @@ const drawCyberPet = (ctx: CanvasRenderingContext2D, id: string) => {
 
 /**
  * DECORATION: Draw Hats (Christmas Themed)
- * Matches Retro Xmas Style for consistency
  */
 const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
     // Retro Xmas Palette & Style
@@ -663,36 +662,29 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
 
     if (id.includes('santa_classic')) {
          // 1. Classic Santa Hat
-         // Main Cone
          ctx.beginPath();
-         ctx.moveTo(-40, 0); // Bottom left
-         ctx.quadraticCurveTo(-20, -90, 40, -50); // Curve to tip
-         ctx.quadraticCurveTo(20, -20, 40, 0); // Inner curve back to bottom right
+         ctx.moveTo(-40, 0); 
+         ctx.quadraticCurveTo(-20, -90, 40, -50); 
+         ctx.quadraticCurveTo(20, -20, 40, 0); 
          ctx.closePath();
          ctx.fillStyle = RED;
          ctx.fill();
          ctx.stroke();
          
-         // Ball at tip
          drawFluffyBall(40, -50, 12);
-         
-         // Brim
          drawBrim(90, 25, -10);
 
     } else if (id.includes('santa_stripe')) {
-         // 2. Striped Hat (Elf/Santa mix)
+         // 2. Striped Hat
          ctx.save();
-         // Shape
          ctx.beginPath();
          ctx.moveTo(-35, 0);
          ctx.quadraticCurveTo(0, -100, 35, 0);
          ctx.closePath();
-         ctx.clip(); // Clip stripes to shape
+         ctx.clip(); 
          
-         // Fill Base
          ctx.fillStyle = CREAM;
          ctx.fill();
-         // Stripes
          ctx.fillStyle = RED;
          ctx.beginPath();
          ctx.moveTo(-50, -20); ctx.lineTo(50, -40); ctx.lineTo(50, -60); ctx.lineTo(-50, -40); ctx.fill();
@@ -700,23 +692,22 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
          ctx.moveTo(-50, -70); ctx.lineTo(50, -90); ctx.lineTo(50, -110); ctx.lineTo(-50, -90); ctx.fill();
          ctx.restore();
          
-         // Stroke Outline
          ctx.beginPath();
          ctx.moveTo(-35, 0);
          ctx.quadraticCurveTo(0, -100, 35, 0);
          ctx.closePath();
          ctx.stroke();
          
-         drawFluffyBall(0, -50, 10); // Center ball (pom pom)
+         drawFluffyBall(0, -50, 10); 
          drawBrim(80, 20, -10);
 
     } else if (id.includes('elf')) {
-         // 3. Elf Hat (Green)
+         // 3. Elf Hat
          ctx.beginPath();
          ctx.moveTo(-40, 0);
          ctx.lineTo(-20, -30);
-         ctx.lineTo(-40, -60); // Zigzag
-         ctx.lineTo(0, -100); // Top
+         ctx.lineTo(-40, -60);
+         ctx.lineTo(0, -100);
          ctx.lineTo(40, -40);
          ctx.lineTo(20, -20);
          ctx.lineTo(40, 0);
@@ -725,11 +716,9 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
          ctx.fill();
          ctx.stroke();
          
-         // Bell
          ctx.beginPath(); ctx.arc(0, -100, 8, 0, Math.PI*2);
          ctx.fillStyle = GOLD; ctx.fill(); ctx.stroke();
          
-         // Brim: Zigzag red
          ctx.beginPath();
          ctx.moveTo(-45, 0);
          ctx.lineTo(-30, 15); ctx.lineTo(-15, 0);
@@ -746,16 +735,15 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
             ctx.save();
             ctx.scale(flip, 1);
             ctx.beginPath();
-            ctx.moveTo(10, -5); // Base near head
-            ctx.quadraticCurveTo(30, -30, 40, -60); // Main branch up
-            ctx.quadraticCurveTo(50, -40, 45, -30); // Tip back down
-            // Small branch
+            ctx.moveTo(10, -5); 
+            ctx.quadraticCurveTo(30, -30, 40, -60); 
+            ctx.quadraticCurveTo(50, -40, 45, -30); 
             ctx.moveTo(35, -45); 
             ctx.quadraticCurveTo(20, -50, 15, -40);
             
             ctx.lineWidth = 6;
             ctx.lineCap = 'round';
-            ctx.strokeStyle = '#8D6E63'; // Brown
+            ctx.strokeStyle = '#8D6E63'; 
             ctx.stroke();
             ctx.restore();
         };
@@ -763,14 +751,12 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
         drawSingleAntler(1);
         drawSingleAntler(-1);
 
-        // Headband
         ctx.beginPath();
-        ctx.arc(0, 40, 50, Math.PI, 0); // Semicircle
+        ctx.arc(0, 40, 50, Math.PI, 0); 
         ctx.lineWidth = 8;
-        ctx.strokeStyle = '#5D4037'; // Dark Brown
+        ctx.strokeStyle = '#5D4037'; 
         ctx.stroke();
 
-        // Ears?
         ctx.beginPath();
         ctx.ellipse(-45, 20, 10, 20, -0.5, 0, Math.PI*2);
         ctx.fillStyle = '#8D6E63'; ctx.fill(); ctx.lineWidth=2; ctx.stroke();
@@ -782,10 +768,14 @@ const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
 };
 
 /**
- * EFFECT: Draw Noise Overlay (Film Grain)
+ * ENGINE UPGRADE: Organic Noise Overlay
+ * Uses 'overlay' blend mode for more natural integration with shadows
  */
-const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number = 0.35) => {
-    const patternSize = 100;
+const drawOrganicNoise = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number) => {
+    if (intensity <= 0) return;
+    
+    // Create a smaller pattern to tile (performance optimization)
+    const patternSize = 256;
     const pCanvas = document.createElement('canvas');
     pCanvas.width = patternSize;
     pCanvas.height = patternSize;
@@ -796,12 +786,16 @@ const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: 
     const buffer = new Uint32Array(imgData.data.buffer);
 
     for (let i = 0; i < buffer.length; i++) {
-        const val = Math.random() * 255;
-        buffer[i] = (255 << 24) | (val << 16) | (val << 8) | val;
+        // Monochrome noise but slightly biased towards grey
+        const gray = (Math.random() * 255) | 0;
+        // Alpha varies for texture depth
+        const alpha = 100 + (Math.random() * 155) | 0; 
+        buffer[i] = (alpha << 24) | (gray << 16) | (gray << 8) | gray;
     }
     pCtx.putImageData(imgData, 0, 0);
 
     ctx.save();
+    // 'overlay' blend mode respects underlying luminosity, making noise look like film grain
     ctx.globalCompositeOperation = 'overlay'; 
     ctx.globalAlpha = intensity;
     
@@ -814,33 +808,36 @@ const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: 
 };
 
 /**
- * EFFECT: Draw Film Look Overlay (Vignette + Warm Color)
+ * ENGINE UPGRADE: Advanced Film Color Grading
+ * Simulates film response curves using blend modes
  */
-const drawFilmLookOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, strength: number) => {
+const drawAdvancedFilmLook = (ctx: CanvasRenderingContext2D, width: number, height: number, strength: number) => {
     if (strength <= 0) return;
 
     ctx.save();
 
-    // 1. Vignette (Dark corners)
-    // Create a radial gradient from transparent center to black corners
-    const radius = Math.max(width, height) * 0.8;
-    const vignette = ctx.createRadialGradient(width / 2, height / 2, radius * 0.5, width / 2, height / 2, radius);
-    vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, `rgba(0,0,0,${strength * 0.6})`); 
-
-    ctx.fillStyle = vignette;
-    ctx.globalCompositeOperation = 'source-over'; 
+    // 1. Teal Shadows (Exclusion/Difference tint in shadows)
+    ctx.globalCompositeOperation = 'exclusion';
+    ctx.fillStyle = `rgba(0, 20, 40, ${strength * 0.3})`;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Color Grading (Vintage Warm Tint)
-    // Apply a warm/golden tone with soft-light blending
+    // 2. Warm Highlights (Soft Light)
     ctx.globalCompositeOperation = 'soft-light';
-    ctx.fillStyle = `rgba(243, 229, 171, ${strength * 0.5})`; // Moccasin/Vanilla tone
+    ctx.fillStyle = `rgba(255, 240, 200, ${strength * 0.4})`;
+    ctx.fillRect(0, 0, width, height);
+
+    // 3. Vignette (Natural falloff)
+    const radius = Math.max(width, height) * 0.7;
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, radius * 0.4, width / 2, height / 2, radius * 1.1);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, `rgba(10,5,0,${strength * 0.7})`); // Very dark brown vignette for film look
+
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
 
     ctx.restore();
 };
-
 
 /**
  * HELPER: Draw Hand-Drawn Star
@@ -989,26 +986,7 @@ export const renderComposite = (params: RenderParams) => {
   if (personImage && (personImage.width > 0 || personImage.naturalWidth > 0)) {
     ctx.save();
     
-    // --- UPDATED FILTER LOGIC ---
-    let filterStr = "";
-    
-    // 1. Beauty/Lighting Filter
-    if (lightingEnabled) {
-       filterStr += "brightness(1.15) contrast(0.95) saturate(1.05) ";
-    }
-    
-    // 2. Film Look (Contrast Adjustment)
-    if (filmLookStrength && filmLookStrength > 0) {
-        // Increase contrast significantly (1.0 to 1.6)
-        // Slight desaturation for that "faded" film vibe
-        const contrastVal = 1 + (filmLookStrength * 0.6);
-        const saturateVal = 1 - (filmLookStrength * 0.2);
-        filterStr += `contrast(${contrastVal}) saturate(${saturateVal}) `;
-    }
-
-    if (filterStr) {
-        ctx.filter = filterStr.trim();
-    }
+    // --- VISUAL ENGINE UPGRADE: Advanced Rendering Pipeline ---
     
     // Custom Manual Transform Logic
     // Calculate Base Scale
@@ -1038,29 +1016,42 @@ export const renderComposite = (params: RenderParams) => {
     const centerX = (TARGET_WIDTH - drawW) / 2;
     const centerY = (TARGET_HEIGHT - drawH) / 2;
     
-    // Draw Base Image
+    // A. Draw Base Image
+    // If lighting is enabled, we apply a base curve adjustment via filter
+    if (lightingEnabled) {
+       ctx.filter = "brightness(1.05) saturate(1.1) contrast(0.98)";
+    }
     ctx.drawImage(personImage, centerX + userX, centerY + userY, drawW, drawH);
+    ctx.filter = "none"; // Reset for subsequent passes
 
-    // === MOE MAGIC EFFECT ===
-    if (isMoeMode) {
-        // 1. Bloom Layer (Soft Glow)
-        // Draw a blurred version on top using 'screen' blend mode
+    // B. ENGINE UPGRADE: Halation / Bloom (Moe Mode)
+    // This simulates the "Dreamy" glow found in Purikura/Anime
+    if (isMoeMode || lightingEnabled) {
         ctx.save();
-        ctx.filter = "blur(15px) brightness(1.2)";
-        ctx.globalCompositeOperation = "screen"; 
-        ctx.globalAlpha = 0.6; // Adjust intensity
+        ctx.globalCompositeOperation = "screen";
+        
+        // Layer 1: Wide soft glow (Atmosphere)
+        ctx.filter = "blur(25px)";
+        ctx.globalAlpha = isMoeMode ? 0.4 : 0.2; 
         ctx.drawImage(personImage, centerX + userX, centerY + userY, drawW, drawH);
-        ctx.restore();
-
-        // 2. Rosy Tint (Skin tone enhancement)
-        // Add a subtle pink overlay
-        ctx.save();
-        ctx.globalCompositeOperation = "soft-light"; 
-        ctx.fillStyle = "rgba(255, 192, 203, 0.25)"; // Soft pink, low opacity
-        ctx.fillRect(centerX + userX, centerY + userY, drawW, drawH);
+        
+        // Layer 2: Tight highlight bloom (Skin glow)
+        ctx.filter = "blur(8px) brightness(1.5)"; 
+        ctx.globalAlpha = isMoeMode ? 0.3 : 0.15;
+        ctx.drawImage(personImage, centerX + userX, centerY + userY, drawW, drawH);
+        
         ctx.restore();
     }
 
+    // C. ENGINE UPGRADE: Skin Tone Enhancement (Rosy Tint)
+    if (isMoeMode) {
+        ctx.save();
+        ctx.globalCompositeOperation = "soft-light"; 
+        ctx.fillStyle = "rgba(255, 200, 220, 0.3)"; // Soft pink overlay
+        ctx.fillRect(centerX + userX, centerY + userY, drawW, drawH);
+        ctx.restore();
+    }
+    
     ctx.restore();
   }
   
@@ -1173,14 +1164,14 @@ export const renderComposite = (params: RenderParams) => {
       });
   }
 
-  // 4. Noise
+  // 4. ENGINE UPGRADE: Organic Noise (More natural grain)
   if (noiseLevel && noiseLevel > 0) {
-      drawNoiseOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, noiseLevel);
+      drawOrganicNoise(ctx, TARGET_WIDTH, TARGET_HEIGHT, noiseLevel);
   }
 
-  // 5. Film Look (New)
+  // 5. ENGINE UPGRADE: Advanced Film Look (Color Grading)
   if (filmLookStrength && filmLookStrength > 0) {
-      drawFilmLookOverlay(ctx, TARGET_WIDTH, TARGET_HEIGHT, filmLookStrength);
+      drawAdvancedFilmLook(ctx, TARGET_WIDTH, TARGET_HEIGHT, filmLookStrength);
   }
 
   // 6. Date Stamp (New)
