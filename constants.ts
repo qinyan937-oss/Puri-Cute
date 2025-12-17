@@ -28,7 +28,7 @@ export const FRAME_PRESETS: FramePreset[] = [
 
 export const LAYOUT_TEMPLATES: LayoutTemplate[] = [
   { id: 'cinema', name: 'Life4Cuts', description: '4-Frame Strip', icon: '🎞️', slots: 4, aspectRatio: 1.5 }, // 3:2 Landscape
-  { id: 'magazine', name: 'Magazine', description: 'Kawaii Collage', icon: '💖', slots: 4, aspectRatio: 0.75 }, // 3:4 Portrait
+  { id: 'polaroid', name: 'Polaroid', description: 'Starry Frame', icon: '📸', slots: 1, aspectRatio: 0.8 }, // Single Shot, Portrait
   { id: 'standard', name: 'ID Photo', description: 'Standard Grid', icon: '📋', slots: 1, aspectRatio: 0.8 }, // 4:5 Portrait approx
   { id: 'driver_license', name: 'License', description: 'US Driver License', icon: '🪪', slots: 1, aspectRatio: 0.8 }, // Photo itself is portrait
 ];

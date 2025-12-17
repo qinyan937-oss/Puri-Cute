@@ -656,6 +656,62 @@ const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: 
 };
 
 /**
+ * HELPER: Draw Colorful Scratches (New Request)
+ */
+const drawColorfulScratches = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen'; 
+    // Random scratches
+    const scratchCount = 20;
+    const colors = ['#FFC0CB', '#87CEFA', '#98FB98', '#DDA0DD', '#FFFFE0'];
+    
+    for (let i = 0; i < scratchCount; i++) {
+        ctx.beginPath();
+        const x = Math.random() * width;
+        const y = Math.random() * height;
+        const len = 50 + Math.random() * 150;
+        const angle = (Math.random() - 0.5) * Math.PI; // Mostly vertical/diagonal
+        
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.sin(angle) * len, y + Math.cos(angle) * len);
+        
+        ctx.strokeStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.lineWidth = 1 + Math.random() * 2;
+        ctx.globalAlpha = 0.4 + Math.random() * 0.3; // Shallow transparency
+        ctx.stroke();
+    }
+    ctx.restore();
+};
+
+/**
+ * HELPER: Draw Hand-Drawn Star
+ */
+const drawHandDrawnStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, outerRadius: number, innerRadius: number, color: string) => {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    let step = Math.PI / 5;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < 5; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+};
+
+/**
  * DECORATION: Draw Date Stamp
  */
 const drawDateStamp = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
@@ -1072,16 +1128,21 @@ export const generateLayoutSheet = (
      ctx.fillStyle = '#AAAAAA';
      ctx.fillText(displayDate.replace(/\//g, '.'), sheetW/2, footerCenterY + 40);
      
-  } else if (layoutId === 'magazine') {
+  } else if (layoutId === 'polaroid') {
+      // NEW POLAROID LAYOUT (Starry Frame, Colorful Background)
       const photoW = canvases[0].width;
       const photoH = canvases[0].height;
-      const gap = 30;
-      const margin = 50;
-      const headerH = 150; 
-      const cols = 2;
-      const rows = Math.ceil(canvases.length / cols);
-      const sheetW = (photoW * cols) + gap + (margin * 2);
-      const sheetH = headerH + (photoH * rows) + gap + (margin * 2);
+      
+      // Standard Polaroid is roughly 3.5in x 4.2in.
+      // Photo area is roughly square-ish or portrait.
+      // We will make a frame around the photo.
+      
+      const framePaddingX = 80;
+      const framePaddingTop = 80;
+      const framePaddingBottom = 250; // Thicker bottom
+      
+      const sheetW = photoW + (framePaddingX * 2);
+      const sheetH = photoH + framePaddingTop + framePaddingBottom;
       
       // Responsive Scaling
       const scale = Math.min(1, MAX_OUTPUT_DIMENSION / Math.max(sheetW, sheetH));
@@ -1089,29 +1150,65 @@ export const generateLayoutSheet = (
       sheet.height = sheetH * scale;
       ctx.scale(scale, scale);
       
-      // Use Custom Background
-      fillSheetBackground(sheetW, sheetH, '#fce7f3');
+      // 1. Colorful Gradient Background (Rainbow style)
+      // Replaces the black in the reference image
+      const grad = ctx.createLinearGradient(0, 0, sheetW, sheetH);
+      grad.addColorStop(0, '#ff9a9e');
+      grad.addColorStop(0.2, '#fad0c4');
+      grad.addColorStop(0.4, '#fad0c4');
+      grad.addColorStop(0.6, '#a18cd1');
+      grad.addColorStop(0.8, '#fbc2eb');
+      grad.addColorStop(1, '#8fd3f4');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, sheetW, sheetH);
       
-      ctx.fillStyle = '#ec4899'; 
-      ctx.font = 'bold italic 100px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText("KIRA MAG", sheetW/2, 110);
-      
-      ctx.fillStyle = '#000';
-      ctx.font = '24px sans-serif';
-      ctx.fillText(`ISSUE No. ${new Date().getMonth()+1} - ${locationText}`, sheetW/2, 140);
-      
-      canvases.forEach((c, i) => {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const x = margin + (col * (photoW + gap));
-          const y = headerH + (row * (photoH + gap));
+      // 2. Draw White Stars on Border
+      // Randomly scatter stars on the frame area (Top, Left, Right, Bottom)
+      const borderStarsCount = 25;
+      for (let i = 0; i < borderStarsCount; i++) {
+          let x, y;
+          // Decide which border side to place star
+          const side = Math.random();
+          if (side < 0.25) { // Top
+              x = Math.random() * sheetW;
+              y = Math.random() * framePaddingTop;
+          } else if (side < 0.5) { // Bottom
+              x = Math.random() * sheetW;
+              y = sheetH - (Math.random() * framePaddingBottom);
+          } else if (side < 0.75) { // Left
+              x = Math.random() * framePaddingX;
+              y = Math.random() * sheetH;
+          } else { // Right
+              x = sheetW - (Math.random() * framePaddingX);
+              y = Math.random() * sheetH;
+          }
           
-          ctx.fillStyle = 'white';
-          ctx.fillRect(x - 10, y - 10, photoW + 20, photoH + 20);
-          ctx.drawImage(c, x, y, photoW, photoH);
-      });
+          const size = 10 + Math.random() * 20;
+          drawHandDrawnStar(ctx, x, y, size, size/2, '#FFFFFF');
+      }
+
+      // 3. Place Photo
+      // Draw a white bg behind photo for separation? Or just photo.
+      // Reference shows photo cleanly inside.
+      // Let's add a thin white border/stroke around photo to simulate the cut
+      ctx.fillStyle = 'white';
+      ctx.fillRect(framePaddingX - 5, framePaddingTop - 5, photoW + 10, photoH + 10);
       
+      ctx.drawImage(canvases[0], framePaddingX, framePaddingTop, photoW, photoH);
+      
+      // 4. Colorful Scratches Overlay
+      drawColorfulScratches(ctx, sheetW, sheetH);
+      
+      // 5. Date/Text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 36px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(customName.toUpperCase(), sheetW / 2, sheetH - 120);
+      
+      ctx.font = '24px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText(displayDate.replace(/\//g, '.'), sheetW / 2, sheetH - 70);
+
   } else if (layoutId === 'standard') {
       // Standard ID Photo - Usually White background is strictly required for the sheet, 
       // but let's allow overriding for fun if user selected a pattern.

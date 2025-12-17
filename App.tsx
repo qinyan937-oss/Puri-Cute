@@ -15,8 +15,8 @@ const TRANSLATIONS = {
     shots_plural: "Shots",
     tpl_cinema: "Life4Cuts",
     tpl_cinema_desc: "4-Frame Strip",
-    tpl_magazine: "Magazine",
-    tpl_magazine_desc: "Kawaii Collage",
+    tpl_polaroid: "Polaroid",
+    tpl_polaroid_desc: "Starry Frame",
     tpl_standard: "ID Photo",
     tpl_standard_desc: "Standard Grid",
     tpl_driver_license: "License",
@@ -73,8 +73,8 @@ const TRANSLATIONS = {
     shots_plural: "张",
     tpl_cinema: "人生四格",
     tpl_cinema_desc: "经典胶卷风",
-    tpl_magazine: "杂志拼贴",
-    tpl_magazine_desc: "可爱排版",
+    tpl_polaroid: "星光拍立得",
+    tpl_polaroid_desc: "彩色星光相框",
     tpl_standard: "证件照",
     tpl_standard_desc: "标准排版",
     tpl_driver_license: "美国驾照",
@@ -807,7 +807,8 @@ const App = () => {
                                     <input 
                                         type="text" value={customName} onChange={(e) => setCustomName(e.target.value)}
                                         placeholder={t.enter_name_placeholder} maxLength={25}
-                                        className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white"
+                                        className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white select-text"
+                                        onTouchStart={(e) => e.stopPropagation()}
                                     />
                                 </div>
                                 {selectedTemplate.id === 'standard' && (
@@ -816,14 +817,16 @@ const App = () => {
                                             <label className="text-[10px] font-bold text-pink-400 uppercase tracking-wider pl-1">{t.enter_date}</label>
                                             <input 
                                                 type="text" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
-                                                className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white"
+                                                className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white select-text"
+                                                onTouchStart={(e) => e.stopPropagation()}
                                             />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-pink-400 uppercase tracking-wider pl-1">{t.enter_location}</label>
                                             <input 
                                                 type="text" value={customLocation} onChange={(e) => setCustomLocation(e.target.value)} maxLength={20}
-                                                className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white"
+                                                className="w-full p-2 rounded-xl border-2 border-pink-100 text-sm font-bold text-slate-700 focus:outline-none focus:border-pink-400 bg-white select-text"
+                                                onTouchStart={(e) => e.stopPropagation()}
                                             />
                                         </div>
                                     </div>
