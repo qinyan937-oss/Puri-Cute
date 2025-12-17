@@ -1,4 +1,5 @@
 
+
 import { BackgroundPreset, FramePreset, LayoutTemplate } from './types';
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
@@ -45,6 +46,12 @@ export const PEN_COLORS = [
 
 // New Sticker Categories
 export const STICKER_CATEGORIES = {
+  HATS: [
+    { id: 'hat_santa_classic', label: 'Santa' },
+    { id: 'hat_santa_stripe', label: 'Striped' },
+    { id: 'hat_elf', label: 'Elf' },
+    { id: 'hat_antler', label: 'Reindeer' },
+  ],
   Y2K: [
     { id: 'y2k_star_silver', label: 'Silver Star' },
     { id: 'y2k_star_holo', label: 'Holo Star' },
@@ -83,6 +90,7 @@ export const STICKER_CATEGORIES = {
 
 // Flattened list for type checking
 export const ALL_STICKER_IDS = [
+  ...STICKER_CATEGORIES.HATS.map(s => s.id),
   ...STICKER_CATEGORIES.Y2K.map(s => s.id),
   ...STICKER_CATEGORIES.RIBBON.map(s => s.id),
   ...STICKER_CATEGORIES.DOODLE.map(s => s.id),

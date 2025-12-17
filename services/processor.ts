@@ -624,6 +624,164 @@ const drawCyberPet = (ctx: CanvasRenderingContext2D, id: string) => {
 };
 
 /**
+ * DECORATION: Draw Hats (Christmas Themed)
+ * Matches Retro Xmas Style for consistency
+ */
+const drawHatSticker = (ctx: CanvasRenderingContext2D, id: string) => {
+    // Retro Xmas Palette & Style
+    const RED = '#C4423F';
+    const GREEN = '#2E5E4E';
+    const CREAM = '#F2E8C9';
+    const GOLD = '#D4AF37';
+    const STROKE = '#4A3328';
+    
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = STROKE;
+
+    // Helper: Draw Fluffy Ball
+    const drawFluffyBall = (x: number, y: number, r: number) => {
+         ctx.beginPath();
+         ctx.arc(x, y, r, 0, Math.PI * 2);
+         ctx.fillStyle = CREAM;
+         ctx.fill();
+         ctx.stroke();
+         // Simple texture dots
+         ctx.fillStyle = '#D9CAB3';
+         ctx.beginPath(); ctx.arc(x - r/3, y - r/3, r/5, 0, Math.PI*2); ctx.fill();
+    };
+
+    // Helper: Draw Brim
+    const drawBrim = (w: number, h: number, yOff: number) => {
+         ctx.beginPath();
+         ctx.roundRect(-w/2, yOff, w, h, h/2);
+         ctx.fillStyle = CREAM;
+         ctx.fill();
+         ctx.stroke();
+    };
+
+    if (id.includes('santa_classic')) {
+         // 1. Classic Santa Hat
+         // Main Cone
+         ctx.beginPath();
+         ctx.moveTo(-40, 0); // Bottom left
+         ctx.quadraticCurveTo(-20, -90, 40, -50); // Curve to tip
+         ctx.quadraticCurveTo(20, -20, 40, 0); // Inner curve back to bottom right
+         ctx.closePath();
+         ctx.fillStyle = RED;
+         ctx.fill();
+         ctx.stroke();
+         
+         // Ball at tip
+         drawFluffyBall(40, -50, 12);
+         
+         // Brim
+         drawBrim(90, 25, -10);
+
+    } else if (id.includes('santa_stripe')) {
+         // 2. Striped Hat (Elf/Santa mix)
+         ctx.save();
+         // Shape
+         ctx.beginPath();
+         ctx.moveTo(-35, 0);
+         ctx.quadraticCurveTo(0, -100, 35, 0);
+         ctx.closePath();
+         ctx.clip(); // Clip stripes to shape
+         
+         // Fill Base
+         ctx.fillStyle = CREAM;
+         ctx.fill();
+         // Stripes
+         ctx.fillStyle = RED;
+         ctx.beginPath();
+         ctx.moveTo(-50, -20); ctx.lineTo(50, -40); ctx.lineTo(50, -60); ctx.lineTo(-50, -40); ctx.fill();
+         ctx.beginPath();
+         ctx.moveTo(-50, -70); ctx.lineTo(50, -90); ctx.lineTo(50, -110); ctx.lineTo(-50, -90); ctx.fill();
+         ctx.restore();
+         
+         // Stroke Outline
+         ctx.beginPath();
+         ctx.moveTo(-35, 0);
+         ctx.quadraticCurveTo(0, -100, 35, 0);
+         ctx.closePath();
+         ctx.stroke();
+         
+         drawFluffyBall(0, -50, 10); // Center ball (pom pom)
+         drawBrim(80, 20, -10);
+
+    } else if (id.includes('elf')) {
+         // 3. Elf Hat (Green)
+         ctx.beginPath();
+         ctx.moveTo(-40, 0);
+         ctx.lineTo(-20, -30);
+         ctx.lineTo(-40, -60); // Zigzag
+         ctx.lineTo(0, -100); // Top
+         ctx.lineTo(40, -40);
+         ctx.lineTo(20, -20);
+         ctx.lineTo(40, 0);
+         ctx.closePath();
+         ctx.fillStyle = GREEN;
+         ctx.fill();
+         ctx.stroke();
+         
+         // Bell
+         ctx.beginPath(); ctx.arc(0, -100, 8, 0, Math.PI*2);
+         ctx.fillStyle = GOLD; ctx.fill(); ctx.stroke();
+         
+         // Brim: Zigzag red
+         ctx.beginPath();
+         ctx.moveTo(-45, 0);
+         ctx.lineTo(-30, 15); ctx.lineTo(-15, 0);
+         ctx.lineTo(0, 15);
+         ctx.lineTo(15, 0); ctx.lineTo(30, 15); ctx.lineTo(45, 0);
+         ctx.lineTo(45, -10); ctx.lineTo(-45, -10);
+         ctx.closePath();
+         ctx.fillStyle = RED; 
+         ctx.fill(); ctx.stroke();
+
+    } else if (id.includes('antler')) {
+        // 4. Reindeer Antlers
+        const drawSingleAntler = (flip: number) => {
+            ctx.save();
+            ctx.scale(flip, 1);
+            ctx.beginPath();
+            ctx.moveTo(10, -5); // Base near head
+            ctx.quadraticCurveTo(30, -30, 40, -60); // Main branch up
+            ctx.quadraticCurveTo(50, -40, 45, -30); // Tip back down
+            // Small branch
+            ctx.moveTo(35, -45); 
+            ctx.quadraticCurveTo(20, -50, 15, -40);
+            
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#8D6E63'; // Brown
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        drawSingleAntler(1);
+        drawSingleAntler(-1);
+
+        // Headband
+        ctx.beginPath();
+        ctx.arc(0, 40, 50, Math.PI, 0); // Semicircle
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = '#5D4037'; // Dark Brown
+        ctx.stroke();
+
+        // Ears?
+        ctx.beginPath();
+        ctx.ellipse(-45, 20, 10, 20, -0.5, 0, Math.PI*2);
+        ctx.fillStyle = '#8D6E63'; ctx.fill(); ctx.lineWidth=2; ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.ellipse(45, 20, 10, 20, 0.5, 0, Math.PI*2);
+        ctx.fillStyle = '#8D6E63'; ctx.fill(); ctx.stroke();
+    }
+};
+
+/**
  * EFFECT: Draw Noise Overlay (Film Grain)
  */
 const drawNoiseOverlay = (ctx: CanvasRenderingContext2D, width: number, height: number, intensity: number = 0.35) => {
@@ -958,7 +1116,9 @@ export const renderComposite = (params: RenderParams) => {
           ctx.scale(sticker.scale * (sticker.isFlipped ? -1 : 1), sticker.scale);
           
           // Switch based on ID prefix or explicit checks
-          if (sticker.content.startsWith('y2k')) {
+          if (sticker.content.startsWith('hat')) {
+              drawHatSticker(ctx, sticker.content);
+          } else if (sticker.content.startsWith('y2k')) {
               drawY2KSticker(ctx, sticker.content);
           } else if (sticker.content.startsWith('ribbon')) {
               drawRibbonSticker(ctx, sticker.content);
