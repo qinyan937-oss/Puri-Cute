@@ -158,6 +158,49 @@ const Icons = {
     Smile: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>,
     ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
     ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>,
+    
+    // --- 3D Hand-Drawn Template Icons ---
+    Cinema3D: () => (
+        <svg className="w-24 h-24 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="25" y="15" width="60" height="90" rx="10" fill="#FCE7F3" />
+          <rect x="20" y="10" width="60" height="90" rx="10" fill="#F472B6" />
+          <rect x="30" y="20" width="40" height="20" rx="4" fill="white" />
+          <rect x="30" y="45" width="40" height="20" rx="4" fill="white" />
+          <rect x="30" y="70" width="40" height="20" rx="4" fill="white" />
+          <circle cx="28" cy="18" r="3" fill="#FDF2F8" />
+          <path d="M85 20L85 90" stroke="#FBCFE8" strokeWidth="4" strokeLinecap="round" strokeDasharray="1 8" />
+        </svg>
+    ),
+    Polaroid3D: () => (
+        <svg className="w-24 h-24 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="24" width="72" height="72" rx="12" fill="#E0F2FE" />
+          <rect x="20" y="20" width="72" height="72" rx="12" fill="#3B82F6" />
+          <rect x="32" y="32" width="48" height="40" rx="4" fill="white" />
+          <rect x="28" y="78" width="56" height="8" rx="4" fill="#60A5FA" />
+          <circle cx="80" cy="35" r="8" fill="#F472B6" />
+          <circle cx="78" cy="33" r="8" fill="#FBCFE8" />
+        </svg>
+    ),
+    Standard3D: () => (
+        <svg className="w-24 h-24 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="24" width="72" height="84" rx="12" fill="#DBEAFE" />
+          <rect x="20" y="20" width="72" height="84" rx="12" fill="#60A5FA" />
+          <rect x="32" y="32" width="48" height="32" rx="6" fill="white" />
+          <rect x="32" y="70" width="48" height="6" rx="3" fill="white" />
+          <rect x="32" y="82" width="30" height="6" rx="3" fill="white" />
+          <circle cx="28" cy="28" r="4" fill="#EFF6FF" />
+        </svg>
+    ),
+    License3D: () => (
+        <svg className="w-24 h-24 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="19" y="34" width="82" height="62" rx="12" fill="#FCE7F3" />
+          <rect x="15" y="30" width="82" height="62" rx="12" fill="#F472B6" />
+          <rect x="25" y="42" width="24" height="30" rx="4" fill="white" />
+          <rect x="55" y="45" width="32" height="6" rx="3" fill="white" opacity="0.8" />
+          <rect x="55" y="56" width="24" height="6" rx="3" fill="white" opacity="0.8" />
+          <path d="M85 75L87.5 80H92.5L88.5 83.5L90 88.5L85 85.5L80 88.5L81.5 83.5L77.5 80H82.5L85 75Z" fill="#FBCFE8" />
+        </svg>
+    ),
 };
 
 
@@ -598,6 +641,14 @@ const App = () => {
 
   // --- Renders ---
 
+  // Template ID to Icon Mapper
+  const TemplateIconsMap: Record<string, React.ReactNode> = {
+      cinema: <Icons.Cinema3D />,
+      polaroid: <Icons.Polaroid3D />,
+      standard: <Icons.Standard3D />,
+      driver_license: <Icons.License3D />,
+  };
+
   const renderTemplateSelect = () => (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden select-none">
           <div className="absolute top-10 left-10 text-6xl opacity-30 animate-float pointer-events-none">☁️</div>
@@ -620,8 +671,8 @@ const App = () => {
                     className="bg-white/90 backdrop-blur-md rounded-[2.5rem] p-6 shadow-2xl hover:-translate-y-4 transition-all duration-300 border-[6px] border-white hover:border-pink-300 flex flex-col items-center group relative overflow-hidden"
                   >
                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/60 to-transparent pointer-events-none" />
-                      <div className="text-7xl mb-6 transform group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300 drop-shadow-[0_10px_10px_rgba(236,72,153,0.3)]">
-                          {tpl.icon}
+                      <div className="mb-6 transform group-hover:rotate-6 transition-transform duration-300 drop-shadow-[0_10px_10px_rgba(236,72,153,0.3)]">
+                          {TemplateIconsMap[tpl.id] || tpl.icon}
                       </div>
                       <h3 className="font-black text-slate-700 text-xl group-hover:text-pink-500 transition-colors">{t[`tpl_${tpl.id}` as keyof typeof t]}</h3>
                       <p className="text-xs text-slate-400 mt-1 font-bold">{t[`tpl_${tpl.id}_desc` as keyof typeof t]}</p>
