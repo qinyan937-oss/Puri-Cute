@@ -94,7 +94,6 @@ const App = () => {
   const [brushSize, setBrushSize] = useState(25);
   const [currentPenColor, setCurrentPenColor] = useState(PEN_COLORS[2]);
   const [currentBg, setCurrentBg] = useState<BackgroundPreset>(BACKGROUND_PRESETS[0]);
-  const [currentFrameImage, setCurrentFrameImage] = useState<HTMLImageElement | null>(null);
   const [customName, setCustomName] = useState("KIRA USER");
   const [customLocation, setCustomLocation] = useState("SHANGHAI");
 
@@ -127,7 +126,7 @@ const App = () => {
                canvas, 
                personImage: img, 
                backgroundImage: currentBg, 
-               frameImage: currentFrameImage, 
+               frameImage: decorations[idx].frameImage, 
                lightingEnabled, 
                noiseLevel, 
                contrast, 
@@ -141,7 +140,7 @@ const App = () => {
            });
        });
     }
-  }, [appState, uploadedImages, currentBg, currentFrameImage, lightingEnabled, noiseLevel, contrast, isMoeMode, decorations, imageTransforms, activeImageIndex, dateStampEnabled, selectedStickerId]);
+  }, [appState, uploadedImages, currentBg, lightingEnabled, noiseLevel, contrast, isMoeMode, decorations, imageTransforms, activeImageIndex, dateStampEnabled, selectedStickerId]);
 
   const handleTemplateSelect = (tpl: LayoutTemplate) => { 
     setSelectedTemplate(tpl); 
@@ -175,7 +174,7 @@ const App = () => {
                     const tracks = (videoRef.current?.srcObject as MediaStream)?.getTracks();
                     tracks?.forEach(t => t.stop()); setAppState(AppState.EDIT);
                 }
-            });
+            }).catch(e => console.error("Image load failed", e));
         }
     }
   };
@@ -272,9 +271,14 @@ const App = () => {
       const dataUrls = canvasRefs.current.filter(c => !!c).map(c => c!.toDataURL('image/png'));
       setAppState(AppState.PROCESSING);
       await new Promise(r => setTimeout(r, 1000));
-      const urls = await generateLayoutSheetAsync(dataUrls, selectedTemplate.id, customLocation, customName, new Date().toLocaleDateString());
-      setFinalLayoutUrls(urls);
-      setAppState(AppState.LAYOUT); playSound('success');
+      try {
+        const urls = await generateLayoutSheetAsync(dataUrls, selectedTemplate.id, customLocation, customName, new Date().toLocaleDateString());
+        setFinalLayoutUrls(urls);
+        setAppState(AppState.LAYOUT); playSound('success');
+      } catch (e) {
+        console.error("Layout generation failed", e);
+        setAppState(AppState.EDIT);
+      }
   };
 
   const handleFrameUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -282,9 +286,12 @@ const App = () => {
       if (file) {
           const url = URL.createObjectURL(file);
           loadImage(url).then(img => {
-              setCurrentFrameImage(img);
+              setDecorations(prev => prev.map((dec, i) => i === activeImageIndex ? {
+                  ...dec,
+                  frameImage: img
+              } : dec));
               playSound('success');
-          });
+          }).catch(e => console.error("Custom frame load failed", e));
       }
   };
 
@@ -359,8 +366,13 @@ const App = () => {
           <input type="file" multiple ref={fileInputRef} className="hidden" onChange={(e) => {
               if (e.target.files) {
                   const files = Array.from(e.target.files).slice(0, selectedTemplate.slots);
-                  Promise.all(files.map((f: File) => loadImage(URL.createObjectURL(f)))).then(imgs => {
-                      setUploadedImages(imgs); setAppState(AppState.EDIT); playSound('success');
+                  Promise.all(files.map((f: File) => loadImage(URL.createObjectURL(f)).catch(err => null))).then(imgs => {
+                      const validImgs = imgs.filter(img => img !== null) as HTMLImageElement[];
+                      if (validImgs.length > 0) {
+                        setUploadedImages(validImgs); 
+                        setAppState(AppState.EDIT); 
+                        playSound('success');
+                      }
                   });
               }
           }} />
@@ -494,7 +506,14 @@ const App = () => {
                       {activeTab === 'frame' && (
                           <div className="grid grid-cols-2 gap-4 animate-fade-in pb-10">
                               {FRAME_PRESETS.map(f => (
-                                <button key={f.id} onClick={async ()=> { const img = f.src ? await loadImage(f.src) : null; setCurrentFrameImage(img); playSound('pop'); }} className={`aspect-[3/4] bg-white rounded-2xl overflow-hidden border-4 transition-all hover:scale-105 ${currentFrameImage?.src === f.src ? 'border-pink-400 shadow-xl' : 'border-slate-100'}`}>
+                                <button key={f.id} onClick={async ()=> { 
+                                    const img = f.src ? await loadImage(f.src) : null; 
+                                    setDecorations(prev => prev.map((dec, i) => i === activeImageIndex ? {
+                                        ...dec,
+                                        frameImage: img
+                                    } : dec));
+                                    playSound('pop'); 
+                                }} className={`aspect-[3/4] bg-white rounded-2xl overflow-hidden border-4 transition-all hover:scale-105 ${decorations[activeImageIndex].frameImage?.src === f.src ? 'border-pink-400 shadow-xl' : 'border-slate-100'}`}>
                                     {f.src ? <img src={f.src} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center font-black text-slate-300">NONE</div>}
                                 </button>
                               ))}
@@ -621,16 +640,16 @@ const App = () => {
 
   if (appState === AppState.LAYOUT) {
       return (
-          <div className="min-h-screen bg-slate-950 flex flex-col items-center p-8 md:p-10 overflow-y-auto pb-48 md:pb-64 relative">
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center p-8 md:p-10 overflow-y-auto pb-64 relative">
               {/* Fixed Header with Global message */}
               <div className="fixed top-0 left-0 right-0 h-24 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-center px-8 md:px-12 z-[200] shadow-2xl">
                  <h2 className="text-pink-400 font-black text-2xl md:text-3xl animate-pulse tracking-tight">{t.ready_msg}</h2>
               </div>
 
-              <div className="flex flex-wrap gap-12 md:gap-20 justify-center items-start px-4 md:px-10 mt-36">
+              <div className="flex flex-row flex-wrap items-start justify-center gap-8 md:gap-16 mt-36 w-full max-w-7xl">
                   {finalLayoutUrls.map((url, i) => (
                       <div key={i} className="flex flex-col items-center gap-10">
-                        {/* Image First */}
+                        {/* Image Frame */}
                         <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[3rem] shadow-[0_60px_120px_rgba(0,0,0,0.85)] transform hover:scale-[1.01] transition-all duration-700 border-2 border-white/20">
                             <img src={url} className="max-h-[85vh] w-auto rounded-xl md:rounded-2xl" alt={`Result ${i}`} />
                         </div>
@@ -638,7 +657,7 @@ const App = () => {
                         {/* Save Button */}
                         <div className="z-[50] relative pb-4">
                             <Button 
-                                className="h-16 bg-pink-500 border-pink-700 hover:bg-pink-400 rounded-full text-2xl font-black px-20 shadow-[0_15px_40px_rgba(236,72,153,0.6)]"
+                                className="h-16 bg-pink-500 border-pink-700 hover:bg-pink-400 rounded-full text-2xl font-black px-24 shadow-[0_15px_40px_rgba(236,72,153,0.6)]"
                                 onClick={() => {
                                     const a = document.createElement('a'); a.href = url; a.download = `KIRA_${i}_${Date.now()}.png`; a.click();
                                 }}
@@ -648,22 +667,16 @@ const App = () => {
                         </div>
                       </div>
                   ))}
-              </div>
 
-              {/* Fixed Bottom Bar for Back Button */}
-              <div className="fixed bottom-10 left-10 z-[200]">
-                 <button 
-                    onClick={() => { setAppState(AppState.EDIT); playSound('pop'); }}
-                    className="w-20 h-20 bg-sky-400 hover:bg-sky-300 border-b-6 border-sky-600 active:border-b-0 active:translate-y-1 transition-all rounded-[1.5rem] flex flex-col items-center justify-center text-white shadow-lg shrink-0"
-                 >
-                    <div className="flex flex-col items-center -space-y-1">
-                        <div className="flex items-center gap-1">
-                            <span className="text-lg font-black">←</span>
-                            <span className="text-lg font-black">{lang === 'zh' ? '返' : 'B'}</span>
-                        </div>
-                        <span className="text-lg font-black">{lang === 'zh' ? '回' : 'ack'}</span>
-                    </div>
-                 </button>
+                  {/* Back Button - Positioned alongside Save buttons at the bottom of scroll, styled rectangularly */}
+                  <div className="mt-4 mb-20 w-full flex justify-center">
+                    <Button 
+                        onClick={() => { setAppState(AppState.EDIT); playSound('pop'); }}
+                        className="h-16 bg-sky-400 hover:bg-sky-300 border-sky-600 rounded-full text-2xl font-black px-32 shadow-[0_15px_40px_rgba(56,189,248,0.4)]"
+                    >
+                        ← {t.back}
+                    </Button>
+                  </div>
               </div>
           </div>
       );

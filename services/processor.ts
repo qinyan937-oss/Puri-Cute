@@ -1,3 +1,4 @@
+
 import { BackgroundPreset, DecorationState, RenderParams, StickerItem } from "../types";
 
 export const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -424,13 +425,14 @@ export const generateLayoutSheetAsync = async (canvases: string[], templateId: s
             const startY = 150;
             const gap = 60;
             
-            // 人生四格：将第一张照片重复填充四次
+            // 人生四格：依次填充上传的四张照片
             for(let i=0; i<4; i++) {
-                if (images[0]) {
+                const img = images[i];
+                if (img) {
                     ctx.save();
                     ctx.shadowColor = 'rgba(0,0,0,0.05)';
                     ctx.shadowBlur = 5;
-                    ctx.drawImage(images[0], startX, startY + i * (slotH + gap), slotW, slotH);
+                    ctx.drawImage(img, startX, startY + i * (slotH + gap), slotW, slotH);
                     ctx.strokeStyle = 'rgba(0,0,0,0.03)';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(startX, startY + i * (slotH + gap), slotW, slotH);
@@ -524,7 +526,7 @@ export const generateLayoutSheetAsync = async (canvases: string[], templateId: s
         ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 2400, 1600);
         ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 2;
         for(let i=0; i<2400; i+=60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1600); ctx.stroke(); }
-        for(let i=0; i<1600; i+=60) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(2400, i); ctx.stroke(); }
+        for(let i=1600; i<1600; i+=60) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(2400, i); ctx.stroke(); }
 
         // 2. Main Photos layout
         if (images[0]) {

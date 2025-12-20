@@ -52,6 +52,7 @@ export interface StickerItem {
 export interface DecorationState {
   strokes: Stroke[];
   stickers: StickerItem[];
+  frameImage?: HTMLImageElement | null;
 }
 
 export interface ImageTransform {
