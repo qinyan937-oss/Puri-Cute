@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { AppState, BackgroundPreset, FramePreset, LayoutTemplate, DecorationState, Stroke, ImageTransform, StickerItem } from './types';
 import { BACKGROUND_PRESETS, FRAME_PRESETS, LAYOUT_TEMPLATES, PEN_COLORS, STICKER_CATEGORIES } from './constants';
@@ -391,9 +390,9 @@ const App = () => {
       return (
           <div className="fixed inset-0 flex flex-col md:flex-row bg-[#fff0f5] overflow-hidden select-none touch-none">
               <div className="flex-1 relative flex items-center justify-center p-4 md:p-8 overflow-hidden bg-slate-100/30">
-                  <div className={`grid gap-4 md:gap-8 w-full h-full max-h-[85vh] flex items-center justify-center ${selectedTemplate.slots === 1 ? 'max-w-4xl px-4 md:px-20' : 'max-w-5xl'}`} style={{ gridTemplateColumns: selectedTemplate.slots > 1 ? '1fr 1fr' : '1fr' }}>
+                  <div className={`grid gap-4 md:gap-8 w-full max-h-[90vh] flex items-center justify-center ${selectedTemplate.slots === 1 ? 'max-w-4xl px-8 md:px-24' : 'max-w-6xl'}`} style={{ gridTemplateColumns: selectedTemplate.slots > 1 ? '1fr 1fr' : '1fr' }}>
                       {uploadedImages.map((_, idx) => (
-                          <div key={idx} className={`relative rounded-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-2xl border-[6px] md:border-[8px] transition-all flex items-center justify-center bg-white ${activeImageIndex === idx ? 'border-pink-400 scale-[1.02] z-10' : 'border-white opacity-90'}`} style={{ aspectRatio: selectedTemplate.aspectRatio }}>
+                          <div key={idx} className={`relative rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl border-[8px] md:border-[12px] transition-all flex items-center justify-center bg-white ${activeImageIndex === idx ? 'border-pink-400 scale-[1.02] z-10' : 'border-white opacity-90'}`} style={{ aspectRatio: selectedTemplate.aspectRatio }}>
                               <canvas 
                                 ref={el => { canvasRefs.current[idx] = el; }} 
                                 className="w-full h-full object-contain touch-none bg-white cursor-crosshair" 
@@ -426,7 +425,7 @@ const App = () => {
                       </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
+                  <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide pb-24 md:pb-6">
                       {activeTab === 'adjust' && (
                           <div className="space-y-6 animate-fade-in">
                               <div className="grid grid-cols-2 gap-4">
@@ -460,6 +459,30 @@ const App = () => {
                                       setImageTransforms(trs);
                                   }} />
                               </div>
+
+                              <div className="space-y-4 pt-2 border-t border-slate-100">
+                                  <div className="space-y-2">
+                                      <label className="font-black text-slate-500 text-xs uppercase tracking-widest block">{lang === 'zh' ? '姓名 (用于驾照/证件照)' : 'NAME (FOR LICENSE/ID)'}</label>
+                                      <input 
+                                          type="text" 
+                                          value={customName} 
+                                          onChange={e => setCustomName(e.target.value)} 
+                                          className="w-full h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-pink-300 outline-none font-black text-slate-700 bg-slate-50/50"
+                                          placeholder="KIRA USER"
+                                      />
+                                  </div>
+                                  <div className="space-y-2">
+                                      <label className="font-black text-slate-500 text-xs uppercase tracking-widest block">{lang === 'zh' ? '地点 (用于证件照)' : 'LOCATION (FOR ID)'}</label>
+                                      <input 
+                                          type="text" 
+                                          value={customLocation} 
+                                          onChange={e => setCustomLocation(e.target.value)} 
+                                          className="w-full h-12 px-4 rounded-xl border-2 border-slate-100 focus:border-pink-300 outline-none font-black text-slate-700 bg-slate-50/50"
+                                          placeholder="SHANGHAI"
+                                      />
+                                  </div>
+                              </div>
+
                               <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                                   <span className="font-black text-slate-600 text-sm uppercase">{t.date_stamp}</span>
                                   <button onClick={() => setDateStampEnabled(!dateStampEnabled)} className={`w-14 h-8 rounded-full transition-colors relative ${dateStampEnabled ? 'bg-pink-400' : 'bg-slate-200'}`}>
@@ -598,26 +621,49 @@ const App = () => {
 
   if (appState === AppState.LAYOUT) {
       return (
-          <div className="min-h-screen bg-slate-950 flex flex-col items-center p-8 md:p-10 overflow-y-auto pb-48 md:pb-64">
-              <h2 className="text-white font-black text-4xl md:text-6xl mb-12 md:mb-20 animate-pulse text-center drop-shadow-[0_0_30px_rgba(236,72,153,1)]">{t.ready_msg}</h2>
-              <div className="flex flex-wrap gap-10 md:gap-16 justify-center items-start px-4 md:px-10">
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center p-8 md:p-10 overflow-y-auto pb-48 md:pb-64 relative">
+              {/* Fixed Header with Global message */}
+              <div className="fixed top-0 left-0 right-0 h-24 bg-slate-900/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-center px-8 md:px-12 z-[200] shadow-2xl">
+                 <h2 className="text-pink-400 font-black text-2xl md:text-3xl animate-pulse tracking-tight">{t.ready_msg}</h2>
+              </div>
+
+              <div className="flex flex-wrap gap-12 md:gap-20 justify-center items-start px-4 md:px-10 mt-36">
                   {finalLayoutUrls.map((url, i) => (
-                      <div key={i} className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[3rem] shadow-[0_60px_100px_rgba(0,0,0,0.8)] transform hover:scale-[1.03] transition-transform duration-700">
-                          <img src={url} className="max-h-[80vh] w-auto rounded-xl md:rounded-2xl" alt="Result" />
+                      <div key={i} className="flex flex-col items-center gap-10">
+                        {/* Image First */}
+                        <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[3rem] shadow-[0_60px_120px_rgba(0,0,0,0.85)] transform hover:scale-[1.01] transition-all duration-700 border-2 border-white/20">
+                            <img src={url} className="max-h-[85vh] w-auto rounded-xl md:rounded-2xl" alt={`Result ${i}`} />
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="z-[50] relative pb-4">
+                            <Button 
+                                className="h-16 bg-pink-500 border-pink-700 hover:bg-pink-400 rounded-full text-2xl font-black px-20 shadow-[0_15px_40px_rgba(236,72,153,0.6)]"
+                                onClick={() => {
+                                    const a = document.createElement('a'); a.href = url; a.download = `KIRA_${i}_${Date.now()}.png`; a.click();
+                                }}
+                            >
+                                {t.save_btn}
+                            </Button>
+                        </div>
                       </div>
                   ))}
               </div>
-              <div className="fixed bottom-0 left-0 right-0 p-8 md:p-12 bg-slate-900/90 backdrop-blur-3xl flex justify-center z-50 border-t border-white/5 shadow-[-20px_0_100px_rgba(0,0,0,0.5)]">
-                <div className="max-w-4xl w-full flex flex-row gap-4 md:gap-12">
-                  <Button variant="outline" className="flex-1 h-16 md:h-24 border-3 md:border-4 border-white/20 text-white hover:bg-white/10 rounded-2xl md:rounded-[3rem] text-xl md:text-3xl font-black" onClick={() => { setUploadedImages([]); setAppState(AppState.TEMPLATE_SELECT); }}>
-                    <span>← {t.back}</span>
-                  </Button>
-                  <Button className="flex-1 h-16 md:h-24 bg-pink-500 border-pink-700 hover:bg-pink-400 rounded-2xl md:rounded-[3rem] text-xl md:text-3xl font-black shadow-pink-500/50 border-b-8" onClick={() => finalLayoutUrls.forEach(url => {
-                    const a = document.createElement('a'); a.href = url; a.download = `KIRA_${Date.now()}.png`; a.click();
-                  })}>
-                    <span>{t.save_btn}</span>
-                  </Button>
-                </div>
+
+              {/* Fixed Bottom Bar for Back Button */}
+              <div className="fixed bottom-10 left-10 z-[200]">
+                 <button 
+                    onClick={() => { setAppState(AppState.EDIT); playSound('pop'); }}
+                    className="w-20 h-20 bg-sky-400 hover:bg-sky-300 border-b-6 border-sky-600 active:border-b-0 active:translate-y-1 transition-all rounded-[1.5rem] flex flex-col items-center justify-center text-white shadow-lg shrink-0"
+                 >
+                    <div className="flex flex-col items-center -space-y-1">
+                        <div className="flex items-center gap-1">
+                            <span className="text-lg font-black">←</span>
+                            <span className="text-lg font-black">{lang === 'zh' ? '返' : 'B'}</span>
+                        </div>
+                        <span className="text-lg font-black">{lang === 'zh' ? '回' : 'ack'}</span>
+                    </div>
+                 </button>
               </div>
           </div>
       );

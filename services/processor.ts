@@ -1,4 +1,3 @@
-
 import { BackgroundPreset, DecorationState, RenderParams, StickerItem } from "../types";
 
 export const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -331,7 +330,11 @@ export const renderComposite = (params: RenderParams) => {
 
     // 5. Frame
     if (frameImage) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.15)';
+        ctx.shadowBlur = 12;
         ctx.drawImage(frameImage, 0, 0, TW, TH);
+        ctx.restore();
     }
 
     // 6. Stickers
@@ -358,7 +361,7 @@ export const renderComposite = (params: RenderParams) => {
       });
     }
 
-    // 7. Date Stamp - 高真实感经典胶片数字水印 (模拟截图中的橘红色点阵发光)
+    // 7. Date Stamp
     if (dateStampEnabled) {
         ctx.save();
         const d = new Date();
@@ -386,12 +389,6 @@ export const renderComposite = (params: RenderParams) => {
         ctx.fillStyle = 'rgba(255, 160, 20, 1)';
         ctx.fillText(displayDate, x, y);
         
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        for(let lineY = y - 50; lineY < y + 10; lineY += 4) {
-          ctx.fillRect(x - 300, lineY, 300, 1);
-        }
-        
         ctx.restore();
     }
 };
@@ -415,34 +412,45 @@ export const generateLayoutSheetAsync = async (canvases: string[], templateId: s
     if (templateId === 'cinema') {
         const renderStrip = (bg: string) => {
             const canvas = document.createElement('canvas');
-            canvas.width = 1200; canvas.height = 3800;
+            canvas.width = 1200; canvas.height = 4000;
             const ctx = canvas.getContext('2d');
             if (!ctx) return "";
             
-            ctx.fillStyle = bg; ctx.fillRect(0, 0, 1200, 3800);
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, 1200, 4000);
             
-            const numImages = images.length;
-            const contentHeight = 3100;
-            const slotHeight = contentHeight / Math.max(numImages, 1);
-            const gap = 30;
-
-            for(let i=0; i<numImages; i++) {
-                if (images[i]) {
-                  const imgH = slotHeight - gap;
-                  ctx.drawImage(images[i], 100, 150 + i * slotHeight, 1000, imgH);
+            const slotW = 1000;
+            const slotH = 800; // 1.25 AR
+            const startX = 100;
+            const startY = 150;
+            const gap = 60;
+            
+            // 人生四格：将第一张照片重复填充四次
+            for(let i=0; i<4; i++) {
+                if (images[0]) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0,0,0,0.05)';
+                    ctx.shadowBlur = 5;
+                    ctx.drawImage(images[0], startX, startY + i * (slotH + gap), slotW, slotH);
+                    ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(startX, startY + i * (slotH + gap), slotW, slotH);
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillRect(startX, startY + i * (slotH + gap), slotW, slotH);
                 }
             }
+
             ctx.fillStyle = '#ec4899';
             ctx.font = '900 180px sans-serif'; 
             ctx.textAlign = 'center';
-            ctx.fillText("KIRA", 600, 3550);
+            ctx.fillText("KIRA", 600, 3750);
             ctx.fillStyle = '#94a3b8';
             ctx.font = '900 60px sans-serif';
-            ctx.fillText(finalDate, 600, 3680);
+            ctx.fillText(finalDate, 600, 3880);
             return canvas.toDataURL('image/png');
         };
 
-        // 人生四格返回两张独立成片
         return [renderStrip('#ffffff'), renderStrip('#fce7f3')];
     }
 
@@ -452,95 +460,155 @@ export const generateLayoutSheetAsync = async (canvases: string[], templateId: s
         const ctx = canvas.getContext('2d');
         if (!ctx) return [];
         
-        ctx.fillStyle = '#fce7f3'; ctx.fillRect(0, 0, 1800, 1100);
-        ctx.strokeStyle = 'rgba(236, 72, 153, 0.15)'; ctx.lineWidth = 2;
-        for(let i=0; i<1800; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1100); ctx.stroke(); }
-        for(let i=0; i<1100; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1800, i); ctx.stroke(); }
-
-        ctx.fillStyle = '#ec4899'; ctx.fillRect(0, 0, 1800, 150);
-        ctx.fillStyle = '#000'; ctx.font = '600 60px sans-serif'; 
-        ctx.fillText("GIRLSWHODRIVE. CLUB", 50, 95);
-        ctx.textAlign = 'right'; ctx.fillText("DRIVER LICENCE", 1750, 95); ctx.textAlign = 'left';
-
-        if (images[0]) ctx.drawImage(images[0], 80, 220, 550, 715);
-        ctx.fillStyle = '#000'; ctx.font = '700 80px sans-serif';
-        ctx.fillText(name.toUpperCase(), 150, 1030);
-
-        ctx.font = '600 50px sans-serif'; ctx.fillStyle = '#ec4899';
-        ctx.fillText("DL 12345678", 700, 300);
-        ctx.fillStyle = '#ef4444'; ctx.fillText(`EXP ${finalDate}`, 700, 400);
-        ctx.fillStyle = '#1e293b'; ctx.font = '700 75px sans-serif';
-        ctx.fillText("LN USER", 700, 530);
-        ctx.fillText("FN KIRA", 700, 630);
-        ctx.fillStyle = '#ef4444'; ctx.fillText("DOB 02/14/1999", 700, 800);
+        // 1. Background
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1800, 1100);
         
-        ctx.fillStyle = '#64748b'; ctx.font = '600 45px sans-serif';
-        ctx.fillText("SEX F  HGT 5'-07'  WGT 125 lb", 850, 1030);
+        // 2. Header
+        ctx.fillStyle = '#f472b6'; ctx.fillRect(0, 0, 1800, 150);
+        ctx.fillStyle = '#000'; ctx.font = '700 60px "Courier New", monospace';
+        ctx.textAlign = 'left'; ctx.fillText("GIRLSWHODRIVE. CLUB", 50, 100);
+        ctx.textAlign = 'right'; ctx.fillText("DRIVER LICENCE", 1750, 100);
+
+        // 3. Grid lines
+        ctx.strokeStyle = '#fbcfe8'; ctx.lineWidth = 1;
+        for(let i=0; i<1800; i+=40) { ctx.beginPath(); ctx.moveTo(i, 150); ctx.lineTo(i, 1100); ctx.stroke(); }
+        for(let i=150; i<1100; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1800, i); ctx.stroke(); }
+
+        // 4. Photo on left
+        if (images[0]) {
+            ctx.drawImage(images[0], 80, 250, 550, 715);
+            ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2;
+            ctx.strokeRect(80, 250, 550, 715);
+        }
+
+        // 5. Details on right
+        const startX = 700;
+        ctx.textAlign = 'left';
+        
+        ctx.fillStyle = '#f472b6'; ctx.font = '900 50px sans-serif';
+        ctx.fillText("DL 12345678", startX, 330);
+        
+        ctx.fillStyle = '#ef4444'; ctx.font = '900 50px sans-serif';
+        ctx.fillText(`EXP ${finalDate}`, startX, 420);
+
+        // Name split logic for FN/LN
+        const nameParts = name.trim().split(/\s+/);
+        const fn = nameParts.length > 1 ? nameParts[0] : 'KIRA';
+        const ln = nameParts.length > 1 ? nameParts.slice(1).join(' ') : (name || 'USER');
+
+        ctx.fillStyle = '#1e3a8a'; ctx.font = '900 60px sans-serif';
+        ctx.fillText(`LN ${ln.toUpperCase()}`, startX, 530);
+        ctx.fillText(`FN ${fn.toUpperCase()}`, startX, 610);
+
+        ctx.fillStyle = '#ef4444'; ctx.font = '900 65px sans-serif';
+        ctx.fillText("DOB 02/14/1999", startX, 780);
+
+        // 6. Footer items
+        ctx.fillStyle = '#000'; ctx.font = '700 80px "Courier New", monospace';
+        ctx.fillText((name || "KIRA USER").toUpperCase(), 80, 1050);
+
+        ctx.fillStyle = '#1e3a8a'; ctx.font = '700 40px "Courier New", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText("SEX F  HGT 5'-07' WGT 125 lb", 1750, 1050);
 
         return [canvas.toDataURL('image/png')];
     }
 
     if (templateId === 'standard') {
         const canvas = document.createElement('canvas');
-        canvas.width = 2000; canvas.height = 1400;
+        canvas.width = 2400; canvas.height = 1600;
         const ctx = canvas.getContext('2d');
         if (!ctx) return [];
-        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 2000, 1400);
         
+        // 1. Background with light blue grid
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 2400, 1600);
         ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 2;
-        for(let i=0; i<2000; i+=80) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1400); ctx.stroke(); }
-        for(let i=0; i<1400; i+=80) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(2000, i); ctx.stroke(); }
+        for(let i=0; i<2400; i+=60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1600); ctx.stroke(); }
+        for(let i=0; i<1600; i+=60) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(2400, i); ctx.stroke(); }
 
+        // 2. Main Photos layout
         if (images[0]) {
-            ctx.drawImage(images[0], 100, 100, 480, 640);
-            ctx.drawImage(images[0], 680, 100, 480, 640);
-            for(let i=0; i<4; i++) {
-                ctx.drawImage(images[0], 100 + i * 290, 850, 240, 320);
-            }
+            // Top 2 large
+            ctx.drawImage(images[0], 150, 150, 600, 750);
+            ctx.drawImage(images[0], 850, 150, 600, 750);
+            
+            // Bottom 4 small
+            const smallW = 320; const smallH = 400;
+            ctx.drawImage(images[0], 150, 1050, smallW, smallH);
+            ctx.drawImage(images[0], 500, 1050, smallW, smallH);
+            ctx.drawImage(images[0], 850, 1050, smallW, smallH);
+            ctx.drawImage(images[0], 1200, 1050, smallW, smallH);
         }
 
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5; 
-        ctx.strokeRect(1320, 100, 580, 1200);
-        ctx.fillStyle = '#334155'; ctx.fillRect(1550, 150, 100, 80);
-        ctx.fillStyle = '#1e40af'; ctx.font = '700 80px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText("証明写真", 1610, 350);
-        ctx.font = '500 45px sans-serif'; ctx.fillText("(ID PHOTO)", 1610, 420);
-        ctx.font = '900 45px serif'; ctx.fillText("★ PERFECT QUALITY ★", 1610, 520);
-        ctx.beginPath(); ctx.moveTo(1370, 580); ctx.lineTo(1850, 580); ctx.stroke();
-        
-        ctx.fillStyle = '#475569'; ctx.font = '700 40px sans-serif';
-        ctx.fillText(`DATE: ${finalDate}`, 1610, 680);
-        ctx.fillText(`LOC: ${loc.toUpperCase()}`, 1610, 770);
-        ctx.font = '14px sans-serif'; ctx.fillText("NO. 001-A4", 1610, 840);
+        // 3. Information Card on the right
+        ctx.save();
+        ctx.translate(1650, 150);
+        ctx.fillStyle = '#fff'; ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,0,0,0.1)';
+        ctx.fillRect(0, 0, 600, 1300);
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+        ctx.strokeRect(10, 10, 580, 1280);
 
-        if (images[0]) ctx.drawImage(images[0], 1420, 900, 380, 350);
-        ctx.strokeRect(1420, 900, 380, 350);
+        // Camera icon drawing
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(250, 100, 100, 70);
+        ctx.fillRect(280, 85, 40, 15);
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(300, 135, 25, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.arc(300, 135, 15, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ef4444'; ctx.fillRect(260, 110, 10, 10);
+
+        ctx.fillStyle = '#1e3a8a'; ctx.textAlign = 'center';
+        ctx.font = '900 65px serif'; ctx.fillText("証明写真", 300, 270);
+        ctx.font = '900 40px "Courier New", monospace'; ctx.fillText("(ID PHOTO)", 300, 330);
+        
+        ctx.font = '900 35px serif'; ctx.fillText("★ PERFECT QUALITY ★", 300, 420);
+        
+        ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(50, 470); ctx.lineTo(550, 470); ctx.stroke();
+
+        ctx.font = '700 30px "Courier New", monospace'; ctx.fillStyle = '#334155';
+        ctx.fillText(`DATE: ${finalDate}`, 300, 550);
+        ctx.fillText(`LOC: ${(loc || "TOKYO / NAGOYA").toUpperCase()}`, 300, 620);
+        ctx.font = '400 20px "Courier New", monospace'; ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`NO. 001-A4`, 300, 700);
+
+        // Small photo inside card - No stroke as requested
+        if (images[0]) {
+            ctx.drawImage(images[0], 125, 800, 350, 440);
+        }
+        ctx.restore();
 
         return [canvas.toDataURL('image/png')];
     }
 
     if (templateId === 'polaroid') {
-        const renderSinglePolaroid = (img: HTMLImageElement | undefined) => {
-            const c = document.createElement('canvas');
-            c.width = 1200; c.height = 1600;
-            const sctx = c.getContext('2d');
-            if (!sctx) return "";
-            sctx.fillStyle = '#2563eb'; sctx.fillRect(0, 0, 1200, 1600);
-            if (img) sctx.drawImage(img, 80, 80, 1040, 1200);
-            sctx.fillStyle = '#fff'; sctx.font = '900 140px sans-serif'; sctx.textAlign = 'center';
-            sctx.fillText("KIRA", 600, 1450);
-            sctx.fillStyle = '#fff'; sctx.font = '900 80px serif';
-            sctx.fillText("★", 150, 1500); 
-            sctx.fillStyle = '#f472b6'; sctx.fillText("★", 1080, 1380);
-            sctx.fillStyle = 'rgba(255,255,255,0.4)'; sctx.fillText("★", 280, 1550);
-            sctx.fillStyle = '#ec4899'; sctx.font = '900 40px serif'; sctx.fillText("★", 1080, 1520);
-            return c.toDataURL('image/png');
-        };
+        const c = document.createElement('canvas');
+        c.width = 1200; c.height = 1600;
+        const sctx = c.getContext('2d');
+        if (!sctx) return [];
+        sctx.fillStyle = '#2563eb'; sctx.fillRect(0, 0, 1200, 1600);
+        if (images[0]) sctx.drawImage(images[0], 80, 80, 1040, 1200);
+        sctx.fillStyle = '#fff'; sctx.font = '900 140px sans-serif'; sctx.textAlign = 'center';
+        sctx.fillText("KIRA", 600, 1450);
 
-        // 拍立得只需出一张成片
-        return [
-            renderSinglePolaroid(images[0])
-        ];
+        // 星星绘制 (左2右3)
+        sctx.font = '900 180px serif';
+        sctx.textAlign = 'center';
+        sctx.fillStyle = '#fff';
+        sctx.fillText("★", 130, 1520); 
+        sctx.fillStyle = 'rgba(255,255,255,0.4)';
+        sctx.font = '900 90px serif';
+        sctx.fillText("★", 300, 1580); 
+        sctx.fillStyle = '#fbcfe8';
+        sctx.font = '900 240px serif';
+        sctx.fillText("★", 1080, 1380); 
+        sctx.fillStyle = '#ec4899';
+        sctx.font = '900 80px serif';
+        sctx.fillText("★", 1120, 1530); 
+        sctx.fillStyle = 'rgba(0,0,0,0.15)';
+        sctx.font = '900 100px serif';
+        sctx.fillText("★", 980, 1570); 
+
+        return [c.toDataURL('image/png')];
     }
 
     return canvases;

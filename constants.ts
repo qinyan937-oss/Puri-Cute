@@ -1,4 +1,3 @@
-
 import { BackgroundPreset, FramePreset, LayoutTemplate } from './types';
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
@@ -50,10 +49,9 @@ export const FRAME_PRESETS: FramePreset[] = [
     id: 'cherry',
     name: 'Sakura Petal',
     src: createSVGFrame(`
-      <rect width="1000" height="1333" fill="none" stroke="#fbcfe8" stroke-width="40" />
+      <rect width="1000" height="1333" fill="none" stroke="#fbcfe8" stroke-width="50" />
       <circle cx="100" cy="100" r="40" fill="#fce7f3" />
       <circle cx="900" cy="1150" r="60" fill="#fdf2f8" />
-      <path d="M500 50 Q550 0 600 50 T700 50" fill="none" stroke="#f472b6" stroke-width="5" />
       <text x="500" y="1280" text-anchor="middle" font-family="sans-serif" font-weight="900" fill="#ec4899" font-size="40">SAKURA MOOD</text>
     `)
   },
@@ -61,29 +59,26 @@ export const FRAME_PRESETS: FramePreset[] = [
     id: 'star_cat',
     name: 'Midnight Cat',
     src: createSVGFrame(`
-      <rect width="1000" height="1333" fill="none" stroke="#1e293b" stroke-width="50" />
+      <rect width="1000" height="1333" fill="none" stroke="#1e293b" stroke-width="60" />
       <path d="M50 50 L100 20 L150 50 Z" fill="#334155" />
       <path d="M850 50 L900 20 L950 50 Z" fill="#334155" />
-      <circle cx="100" cy="1200" r="10" fill="#fbbf24" />
-      <circle cx="200" cy="1250" r="5" fill="#fbbf24" />
       <circle cx="900" cy="100" r="20" fill="#fcd34d" />
+      <text x="500" y="1280" text-anchor="middle" font-family="sans-serif" font-weight="900" fill="#64748b" font-size="35">STARRY NIGHT</text>
     `)
   },
   {
     id: 'strawberry',
-    name: 'Strawberry Gingham',
+    name: 'Berry Gingham',
     src: createSVGFrame(`
-      <rect width="1000" height="1333" fill="none" stroke="#ef4444" stroke-width="40" />
+      <rect width="1000" height="1333" fill="none" stroke="#ef4444" stroke-width="50" />
       <rect x="0" y="0" width="1000" height="1333" fill="none" stroke="#fee2e2" stroke-width="20" stroke-dasharray="20,20" />
-      <circle cx="50" cy="50" r="20" fill="#ef4444" />
-      <circle cx="950" cy="1283" r="20" fill="#ef4444" />
-      <text x="500" y="80" text-anchor="middle" font-family="sans-serif" font-weight="900" fill="#ef4444" font-size="35">BERRY SWEET</text>
+      <text x="500" y="80" text-anchor="middle" font-family="sans-serif" font-weight="900" fill="#ef4444" font-size="40">SWEET STRAWBERRY</text>
     `)
   }
 ];
 
 export const LAYOUT_TEMPLATES: LayoutTemplate[] = [
-  { id: 'cinema', name: 'Life4Cuts', description: 'Double Strip (White/Pink)', slots: 4, aspectRatio: 1.25 }, 
+  { id: 'cinema', name: 'Life4Cuts', description: 'Double Strip (White/Pink)', slots: 1, aspectRatio: 1.25 }, 
   { id: 'polaroid', name: 'Polaroid', description: 'Blue Gradient', slots: 1, aspectRatio: 1 }, 
   { id: 'standard', name: 'ID Photo', description: 'Blue Grid', slots: 1, aspectRatio: 0.77 }, 
   { id: 'driver_license', name: 'License', description: 'Pink Card', slots: 1, aspectRatio: 0.77 }, 
